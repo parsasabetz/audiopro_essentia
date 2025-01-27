@@ -35,7 +35,6 @@ env/
 .env*
 
 # IDEs and editors
-.vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
@@ -52,3 +51,7 @@ htmlcov/
 .tox/
 .coverage
 coverage.xml
+
+# Package metadata
+*.egg-info/
+*.egg-info/*
