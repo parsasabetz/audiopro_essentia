@@ -17,9 +17,10 @@ import numpy as np
 import psutil
 import msgpack
 
-# Local imports - Changed from absolute to relative imports
+# Local imports
 from .extractor import extract_features
 from .monitor import monitor_cpu_usage, print_performance_stats
+from .metadata import get_file_metadata
 
 # Configure logging
 logging.basicConfig(
@@ -95,6 +96,9 @@ def analyze_audio(file_path: str, output_file: str, output_format: str = "json")
         logger.info(f"Loading audio file: {file_path}")
         audio_data, sample_rate = librosa.load(file_path)
         
+        # Get file metadata from the new module
+        metadata = get_file_metadata(file_path, audio_data, sample_rate)
+        
         # Get tempo and beats with proper type conversion
         tempo, beats = librosa.beat.beat_track(y=audio_data, sr=sample_rate)
         # Fix: Replace np.asscalar with item()
@@ -104,8 +108,9 @@ def analyze_audio(file_path: str, output_file: str, output_format: str = "json")
         logger.info("Extracting features...")
         features = extract_features(audio_data, sample_rate)
         
-        # Create analysis dictionary with proper types
+        # Create analysis dictionary with metadata first
         analysis = {
+            "metadata": metadata,
             "tempo": tempo,
             "beats": beat_times,
             "features": features
