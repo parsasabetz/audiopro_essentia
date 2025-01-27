@@ -15,6 +15,7 @@ import argparse
 import librosa
 import numpy as np
 import psutil
+import msgpack  # Import msgpack for MessagePack encoding
 
 # Moved extractor functions to a separate module
 from extractor import extract_features
@@ -38,13 +39,14 @@ FREQUENCY_BANDS = {
     # high: everything above mid
 }
 
-def analyze_audio(file_path: str, output_file: str) -> None:
+def analyze_audio(file_path: str, output_file: str, output_format: str = "json") -> None:
     """
     Main function to analyze audio and monitor performance.
     
     Args:
         file_path: Path to input audio file
-        output_file: Path for output JSON file
+        output_file: Path for output file with extension
+        output_format: Format of the output file ('json' or 'msgpack')
     """
     start_time = time.time()
     cpu_usage_list: List[float] = []
@@ -78,11 +80,15 @@ def analyze_audio(file_path: str, output_file: str) -> None:
             "features": features
         }
         
-        # Save to JSON
-        with open(output_file, "w") as f:
-            json.dump(analysis, f, indent=4)
-            
-        logger.info(f"Analysis saved to {output_file}")
+        # Save to file based on the specified format
+        if output_format == "json":
+            with open(output_file, "w") as f:
+                json.dump(analysis, f, indent=4)
+            logger.info(f"Analysis saved to {output_file}")
+        elif output_format == "msgpack":
+            with open(output_file, "wb") as f:
+                msgpack.pack(analysis, f)
+            logger.info(f"Analysis saved to {output_file}")
         
         # Stop CPU monitoring
         stop_flag.set()
@@ -106,6 +112,23 @@ def analyze_audio(file_path: str, output_file: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze audio files.")
     parser.add_argument("input_file", type=str, help="Path to input audio file")
-    parser.add_argument("output_file", type=str, help="Path to output JSON file")
+    parser.add_argument("output_file", type=str, help="Name for output file without extension")
+    parser.add_argument(
+        "--format",
+        type=str,
+        choices=["json", "msgpack"],
+        default="json",
+        help="Output format: 'json' (default) or 'msgpack'"
+    )
     args = parser.parse_args()
-    analyze_audio(args.input_file, args.output_file)
+    
+    # Validate and append the appropriate file extension
+    if args.output_file.endswith(('.json', '.msgpack')):
+        raise ValueError("Please provide the output file name without an extension.")
+    
+    if args.format == "json":
+        output_file = f"{args.output_file}.json"
+    else:
+        output_file = f"{args.output_file}.msgpack"
+    
+    analyze_audio(args.input_file, output_file, output_format=args.format)

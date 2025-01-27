@@ -12,25 +12,43 @@ pip install -r requirements.txt
 
 ## Usage
 
-Run the `process.py` script with the input audio file and desired output JSON file as arguments.
+Run the `process.py` script with the input audio file and desired output file name as arguments.
 
 The `process.py` script is designed to dynamically handle audio file analysis. It accepts command-line arguments for input and output file paths, allowing flexibility in processing different audio files without modifying the script. The tool leverages parallel processing to efficiently extract features from audio frames, ensuring optimal performance even with large files. By utilizing multi-threading, the feature extraction process is accelerated, making the analysis both faster and more resource-efficient.
 
+Additionally, you can specify the output format using the `--format` argument. The supported formats are:
+
+- `json` (default): Outputs the analysis in JSON format.
+- `msgpack`: Outputs the analysis in MessagePack format for more efficient binary encoding.
+
 ```bash
-python process.py <input_file> <output_file>
+python process.py <input_file> <output_file> [--format json|msgpack]
 ```
 
 ### Example
 
+### Default JSON Output
+
 ```bash
-python process.py love.mp3 analysis_results.json
+python process.py love.mp3 analysis_results
 ```
+
+- **Output File:** `analysis_results.json`
+
+### MessagePack Output
+
+```bash
+python process.py love.mp3 analysis_results --format msgpack
+```
+
+- **Output File:** `analysis_results.msgpack`
 
 ## Features
 
 - Analyzes audio files to extract tempo, beats, and various audio features.
 - Monitors CPU and memory usage during processing.
-- Saves analysis results in a structured JSON format.
+- Saves analysis results in a structured JSON or MessagePack format.
+- Utilizes parallel processing and multi-threading for efficient feature extraction.
 
 ## Commit Message Convention
 
