@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AudioPro"
+version = "0.0.0"
+authors = [
+  { name="Parsa Sabet", email="parsa2003sabet@icloud.com" }
+]
+keywords = ["audio", "processing", "audio processing", "music processing", "sound processing"]
+description = "Multi-thread audio processing with performance monitoring library"
+readme="README.md"
+license = { file = "LICENSE" }
+dependencies = [
+  "librosa==0.10.2.post1",
+  "numpy==2.2.2",
+  "psutil==6.1.1",
+  "GPUtil==1.4.0"
+]
