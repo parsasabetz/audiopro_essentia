@@ -1,110 +1,110 @@
-# Audio Process
+# AudioPro
 
-Audio Processing and Performance Monitoring Tool.
+A high-performance audio processing library with built-in performance monitoring.
 
 ## Installation
 
-Ensure you have Python installed. Install the required packages using:
+**Requirements:**
+- Python 3.12 or higher
+- For Apple Silicon users: `xcode-select --install` may be required
 
 ```bash
-pip install -r requirements.txt
+pip install git+ssh://git@github.com/parsasabetz/audiopro.git
 ```
 
 ## Usage
 
-Run the `process.py` script with the input audio file and desired output file name as arguments.
+### Basic Usage
+```python
+from audiopro import analyze_audio
 
-The `process.py` script is designed to dynamically handle audio file analysis. It accepts command-line arguments for input and output file paths, allowing flexibility in processing different audio files without modifying the script. The tool leverages parallel processing to efficiently extract features from audio frames, ensuring optimal performance even with large files. By utilizing multi-threading, the feature extraction process is accelerated, making the analysis both faster and more resource-efficient.
+# Default JSON output
+analyze_audio(
+    file_path="input.mp3",
+    output_file="analysis_output",  # Will create analysis_output.json
+)
 
-Additionally, you can specify the output format using the `--format` argument. The supported formats are:
-
-- `json` (default): Outputs the analysis in JSON format.
-- `msgpack`: Outputs the analysis in MessagePack format for more efficient binary encoding.
-
-```bash
-python process.py <input_file> <output_file> [--format json|msgpack]
+# MessagePack output
+analyze_audio(
+    file_path="input.mp3",
+    output_file="analysis_output",
+    output_format="msgpack"  # Will create analysis_output.msgpack
+)
 ```
 
-### Example
+### Output Format
+The library supports two output formats:
+- `json` (default): Human-readable JSON format
+- `msgpack`: Binary MessagePack format for efficient storage
 
-### Default JSON Output
-
-```bash
-python process.py love.mp3 analysis_results
+### Output Structure
+```python
+{
+    "tempo": float,  # Beats per minute
+    "beats": [float],  # List of beat timestamps in seconds
+    "features": [
+        {
+            "time": float,  # Time in seconds
+            "rms": float,   # Root mean square energy
+            "spectral_centroid": float,
+            "spectral_bandwidth": float,
+            "frequency_bands": {
+                "low": [float],    # < 250 Hz
+                "mid": [float],    # 250-2000 Hz
+                "high": [float]    # > 2000 Hz
+            }
+        }
+    ]
+}
 ```
-
-- **Output File:** `analysis_results.json`
-
-### MessagePack Output
-
-```bash
-python process.py love.mp3 analysis_results --format msgpack
-```
-
-- **Output File:** `analysis_results.msgpack`
 
 ## Features
 
-- Analyzes audio files to extract tempo, beats, and various audio features.
-- Monitors CPU and memory usage during processing.
-- Saves analysis results in a structured JSON or MessagePack format.
-- Utilizes parallel processing and multi-threading for efficient feature extraction.
+- **Audio Analysis**: Extract tempo, beats, and spectral features
+- **Performance Monitoring**: Built-in CPU and memory usage tracking
+- **Multi-threaded**: Parallel processing for faster analysis
+- **Flexible Output**: Choose between JSON and MessagePack formats
+- **Resource Efficient**: Optimized for large audio files
+- **GPU Support**: Optional GPU monitoring when available
 
-## Commit Message Convention
+## Project Structure
+```
+audiopro/
+└── src/
+    └── audiopro/
+        ├── __init__.py      # Public API
+        ├── process.py       # Core processing
+        ├── extractor.py     # Feature extraction
+        └── monitor.py       # Performance monitoring
+```
 
-This project uses the following commit message convention (following the Commitizen format):
+## Development
 
+### Setting up development environment
+```bash
+git clone git@github.com:parsasabetz/audiopro.git
+cd audiopro
+python -m venv venv
+source venv/bin/activate
+pip install -e .
+```
+
+### Commit Convention
+Follow the Commitizen format:
 ```
 <type>(<scope>): <subject>
 ```
 
-Where `<type>` is one of the following:
+Make commits using:
+```bash
+git cz
+```
 
-### Code Changes
-- `feat`: A new feature.
-- `fix`: A bug fix.
-- `refactor`: A code change that neither fixes a bug nor adds a feature.
-- `perf`: A code change that improves performance.
-- `style`: Non-functional changes (e.g., white-space, formatting).
-
-### Testing
-- `test`: Adding or updating tests.
-- `hotfix`: A quick fix for a critical issue.
-
-### Tooling and Configuration
-- `chore`: Changes to the build process or auxiliary tools and libraries.
-- `build`: Changes to the build system or external dependencies.
-- `ci`: Changes to the CI configuration files and scripts.
-- `config`: Configuration changes.
-- `update`: Updating dependencies.
-
-### Documentation
-- `docs`: Documentation changes.
-
-### Project and Releases
-- `init`: Initial commit.
-- `release`: Release a new version.
-- `breaking`: A breaking change.
-
-### File Operations
-- `remove`: Remove code or files.
-- `move`: Move or rename code or files.
-- `rename`: Rename code or files.
-- `clean`: Clean up code or files.
-
-### Deployment
-- `deploy`: Deployment changes.
-
-### Miscellaneous
-- `security`: Fixing security issues.
-- `merge`: Merge changes.
-- `wip`: Work in progress.
-- `revert`: Revert a previous commit.
-
-Make sure to use the command `git cz` to commit changes using the Commitizen format.
-Make sure to use the command `cd bump` to bump the version number.
-
+Version bumping:
+```bash
+cz bump
+```
 
 ## License
 
-This project is currently closed source.
+This project is closed source. All rights reserved.
