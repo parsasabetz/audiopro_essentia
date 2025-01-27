@@ -1,3 +1,19 @@
+## 0.2.0 (2025-01-27)
+
+### BREAKING CHANGE
+
+- The changes in this commit fully transition the scripts into a complete python library.
+
+### Fix
+
+- **monitor.py**: make GPU monitoring optional for better compatibility
+- **deps**: update dependencies and add setuptools for Python 3.12 support
+- **process.py**: correct output format handling and add parameter validation
+
+### Refactor
+
+- **src/audiopro**: relocate core modules to src/audiopro directory
+
 ## 0.1.0 (2025-01-27)
 
 ### BREAKING CHANGE
