@@ -168,8 +168,10 @@ async def analyze_audio(
             async with aiofiles.open(final_output, "w") as f:
                 await f.write(json.dumps(analysis, indent=4))
         else:
+            # Serialize the analysis dictionary to MessagePack bytes
+            packed_data = msgpack.packb(analysis)
             async with aiofiles.open(final_output, "wb") as f:
-                await asyncio.to_thread(msgpack.pack, analysis, f)
+                await f.write(packed_data)
 
         logger.info(f"Analysis saved to {final_output}")
 
