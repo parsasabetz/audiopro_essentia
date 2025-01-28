@@ -1,3 +1,31 @@
+## 0.3.0 (2025-01-29)
+
+### BREAKING CHANGE
+
+- The audio processing module has been refactored to use Essentia library instead of Librosa.
+
+### Feat
+
+- **metadata**: Add get_file_metadata for public export
+- **process**: Integrate metadata module with main process
+- **metadata**: Add dedicated metadata module for audio file analysis
+
+### Fix
+
+- **metadata**: Correct comment for size calculation in get_file_metadata function
+
+### Refactor
+
+- **audiopro**: Replace librosa with Essentia for audio processing, enhance spectral analysis
+- **monitor**: Enhance CPU monitoring logic and improve performance statistics reporting, reduce CPU overhead in the monitor file for better performance.
+
+### Perf
+
+- **metadata**: Increase block size for hash calculation and improve RMS calculation efficiency
+- **metadata**: Ensure consistent type conversion for metadata
+- **process**: Simplify input validation and improve error handling
+- **extractor**: Improve feature extraction robustness and JSON serialization, add new features for processing
+
 ## 0.2.0 (2025-01-27)
 
 ### BREAKING CHANGE
