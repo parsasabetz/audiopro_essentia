@@ -67,7 +67,7 @@ def get_file_metadata(file_path: str, audio_data: np.ndarray, sample_rate: int) 
             "format": file_path_obj.suffix[1:],
             "size_mb": float(
                 round(file_stats.st_size / (1024**2), 6)
-            ), # for MB
+            ),  # for 2MB
             "created_date": datetime.datetime.fromtimestamp(
                 file_stats.st_ctime
             ).isoformat(),
