@@ -12,14 +12,13 @@ from typing import List
 import argparse
 
 # Third-party imports
-import librosa
+import essentia.standard as es
 import numpy as np
-import psutil
 import msgpack
-import warnings  # Ensure warnings are imported
+import warnings
 
 # Local imports
-from .extractor import FRAME_LENGTH, HOP_LENGTH, extract_features
+from .extractor import extract_features
 from .monitor import monitor_cpu_usage, print_performance_stats
 from .metadata import get_file_metadata
 
@@ -69,10 +68,19 @@ def analyze_audio(
 
     try:
         logger.info(f"Loading audio file: {file_path}")
-        audio_data, sample_rate = librosa.load(file_path, sr=None)
+        loader = es.MonoLoader(filename=file_path)
+
+        # If streaming isn't possible, keep as is:
+        audio_data = loader()
+        sample_rate = int(loader.paramValue("sampleRate"))
+
+        # Ensure audio_data has an even length
+        if len(audio_data) % 2 != 0:
+            audio_data = np.append(audio_data, 0.0).astype(np.float32)
+            logger.info("Appended zero to make audio_data length even for FFT.")
 
         # Check if audio_data is not empty or silent
-        if np.all(audio_data == 0) or len(audio_data) == 0:
+        if not np.any(audio_data):
             raise ValueError("Audio data is empty or silent.")
 
         # Calculate minimum required samples for pitch estimation
@@ -85,11 +93,15 @@ def analyze_audio(
 
         # Check signal energy
         signal_energy = np.sum(audio_data**2)
-        if signal_energy < 1e-6:  # Arbitrary small threshold
+        if signal_energy < 1e-6:
             raise ValueError("Audio signal energy too low for analysis")
 
-        # Calculate spectral flatness to assess frequency content
-        spectral_flatness = librosa.feature.spectral_flatness(y=audio_data).mean()
+        # Compute spectrum once and reuse it
+        w = es.Windowing(type="hann")
+        spectrum = es.Spectrum()
+        windowed_audio = w(audio_data)
+        spec = spectrum(windowed_audio)
+        spectral_flatness = float(es.Flatness()(spec))
         logger.info(f"Spectral Flatness: {spectral_flatness:.4f}")
 
         # Define a threshold for spectral flatness (e.g., 0.1)
@@ -99,47 +111,52 @@ def analyze_audio(
                 "Audio has high spectral flatness. Pitch estimation may be unreliable."
             )
 
-        # Check for sufficient frequency content
-        spectral = np.abs(
-            librosa.stft(audio_data, n_fft=FRAME_LENGTH, hop_length=HOP_LENGTH)
-        )
-        if np.all(spectral == 0):
+        # Replace STFT frequency content check with simple spectrum check
+        if not np.any(spec):
             raise ValueError(
                 "Audio data has insufficient frequency content for pitch estimation."
             )
 
-        # Suppress specific librosa warnings temporarily
+        # Manually compute spectral bandwidth
+        def compute_spectral_bandwidth(spec, freqs, centroid):
+            return np.sqrt(np.sum(((freqs - centroid) ** 2) * spec) / np.sum(spec))
+
+        freqs = np.fft.rfftfreq(len(audio_data), d=1 / sample_rate)
+        centroid = es.Centroid(range=sample_rate / 2)(spec)
+        spectral_bandwidth = compute_spectral_bandwidth(spec, freqs, centroid)
+
+        # Suppress specific warnings temporarily
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
 
             # Get file metadata from the new module
             metadata = get_file_metadata(file_path, audio_data, sample_rate)
 
-            # Get tempo and beats with proper type conversion
-            tempo, beats = librosa.beat.beat_track(y=audio_data, sr=sample_rate)
+            # Replace tempo and beat tracking with RhythmExtractor2013
+            rhythm_extractor = es.RhythmExtractor2013(method="multifeature")
+            tempo, beat_positions, _, _, _ = rhythm_extractor(audio_data)
+            beat_times = beat_positions.tolist()
 
         # Check if beats are detected to avoid empty frequency sets
-        if len(beats) == 0:
+        if not beat_times:
             logger.warning("No beats detected in the audio. Skipping beat tracking.")
             tempo = 0.0
-            beat_times = []
-        else:
-            tempo = float(tempo)  # Direct conversion without condition
-            beat_times = librosa.frames_to_time(beats, sr=sample_rate).tolist()
 
         logger.info("Extracting features...")
         features = extract_features(audio_data, sample_rate)
 
-        # Simplified analysis dictionary (removed redundant feature_map)
+        # Analysis dictionary
         analysis = {
             "metadata": metadata,
             "tempo": tempo,
+            "spectral_bandwidth": spectral_bandwidth,
             "beats": beat_times,
             "features": features,
         }
 
         # Save to file based on the specified format
-        with open(final_output, "w" if output_format == "json" else "wb") as f:
+        mode = "w" if output_format == "json" else "wb"
+        with open(final_output, mode) as f:
             if output_format == "json":
                 json.dump(analysis, f, indent=4)
             else:

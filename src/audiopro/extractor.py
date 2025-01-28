@@ -11,7 +11,7 @@ import os
 
 # Third-party imports
 import numpy as np
-import librosa
+import essentia.standard as es
 
 # Typing imports
 from typing import Dict, List, Optional, Tuple
@@ -35,6 +35,9 @@ FREQUENCY_BANDS = {
 MAX_WORKERS = min(32, (os.cpu_count() or 1) + 4)
 BATCH_SIZE = 1000  # Process frames in batches
 
+# Cache frequency bins to avoid recalculating for each frame
+FREQS_CACHE = {}
+
 
 def convert_to_native_types(data):
     """Convert numpy types to native Python types"""
@@ -51,8 +54,65 @@ def convert_to_native_types(data):
     return data
 
 
+def compute_spectral_bandwidth(
+    spectrum: np.ndarray, freqs: np.ndarray, centroid: float
+) -> float:
+    """
+    Manually compute the spectral bandwidth.
+
+    Args:
+        spectrum: Magnitude spectrum of the audio frame.
+        freqs: Frequency bins corresponding to the spectrum.
+        centroid: Spectral centroid of the audio frame.
+
+    Returns:
+        Spectral bandwidth as a float.
+    """
+    # Calculate the variance around the centroid
+    variance = np.sum(((freqs - centroid) ** 2) * spectrum) / np.sum(spectrum)
+    # Return the standard deviation as spectral bandwidth
+    return np.sqrt(variance)
+
+
+def compute_frequency_bands(
+    spec: np.ndarray, sample_rate: int, frame_length: int
+) -> Dict[str, float]:
+    """
+    Compute frequency bands with proper frequency bin calculation.
+
+    Args:
+        spec: Magnitude spectrum
+        sample_rate: Sample rate of the audio
+        frame_length: Length of the frame
+
+    Returns:
+        Dictionary containing the energy in each frequency band
+    """
+    key = (sample_rate, frame_length)
+    if key not in FREQS_CACHE:
+        FREQS_CACHE[key] = np.linspace(0, sample_rate / 2, len(spec))
+    freqs = FREQS_CACHE[key]
+
+    result = {}
+    for band_name, (low, high) in FREQUENCY_BANDS.items():
+        # Create mask for the current frequency band
+        mask = (freqs >= low) & (freqs < high)
+        if np.any(mask):
+            # Calculate mean energy in the band
+            result[band_name] = float(np.mean(spec[mask]))
+        else:
+            # Handle case where no frequencies fall in the band
+            result[band_name] = 0.0
+
+    return result
+
+
 def process_frame(
-    frame_data: Tuple[int, np.ndarray], sample_rate: int, frame_length: int
+    frame_data: Tuple[int, np.ndarray],
+    sample_rate: int,
+    frame_length: int,
+    window_func: np.ndarray,
+    freq_array: np.ndarray,
 ) -> Tuple[int, Optional[Dict]]:
     """Process a single audio frame with better error handling"""
     frame_index, frame = frame_data
@@ -63,73 +123,112 @@ def process_frame(
         return frame_index, None
 
     try:
+        # Ensure FRAME_LENGTH is even
+        assert frame_length % 2 == 0, "FRAME_LENGTH must be even."
+
         # Window and pad in one step to avoid memory duplication
         if len(frame) < frame_length:
             if len(frame) < frame_length // 2:  # Skip if too short
                 return frame_index, None
-            frame = np.pad(frame, (0, frame_length - len(frame)))
-        frame *= np.hanning(len(frame))
+            frame = np.pad(frame, (0, frame_length - len(frame))).astype(
+                np.float32
+            )  # Ensure float32
+            logger.debug(f"Padded frame {frame_index} to length {frame_length}.")
 
-        # Compute STFT with error check
-        spec = np.abs(librosa.stft(frame, n_fft=frame_length, window="hann"))
-        if not np.any(spec) or np.any(np.isnan(spec)):
+        # Additional check to ensure frame length is even
+        if len(frame) % 2 != 0:
+            frame = np.append(frame, 0.0).astype(np.float32)  # Ensure float32
+            logger.debug(f"Appended zero to frame {frame_index} to make length even.")
+
+        frame *= window_func  # Use precomputed window function
+
+        # Replace window + STFT with Essentia
+        w = es.Windowing(type="hann")
+        spectrum = es.Spectrum()
+        windowed_frame = w(frame)
+        spec = spectrum(windowed_frame)
+
+        if np.all(spec == 0):
             return frame_index, None
 
-        freqs = librosa.fft_frequencies(sr=sample_rate, n_fft=frame_length)
+        # Use Essentia algorithms for feature extraction
+        centroid = es.Centroid(range=sample_rate / 2)(spec)
 
-        feature_dict = {
-            "time": float(
-                librosa.frames_to_time(
-                    frame_index // HOP_LENGTH, sr=sample_rate, hop_length=HOP_LENGTH
-                )
-            ),
-            "rms": float(np.sqrt(np.mean(frame**2))),
-            "spectral_centroid": float(
-                librosa.feature.spectral_centroid(S=spec, sr=sample_rate).mean()
-            ),
-            "spectral_bandwidth": float(
-                librosa.feature.spectral_bandwidth(S=spec, sr=sample_rate).mean()
-            ),
-            "spectral_flatness": float(
-                librosa.feature.spectral_flatness(y=frame).mean()
-            ),
-            "spectral_rolloff": float(
-                librosa.feature.spectral_rolloff(S=spec, sr=sample_rate).mean()
-            ),
-            "zero_crossing_rate": float(
-                librosa.feature.zero_crossing_rate(frame).mean()
-            ),
-            "mfcc": [
-                float(x)
-                for x in librosa.feature.mfcc(y=frame, sr=sample_rate, n_mfcc=13).mean(
-                    axis=1
-                )
-            ],
-            "frequency_bands": {
-                band_name: float(
-                    np.mean(spec[(freqs >= freq_range[0]) & (freqs < freq_range[1])])
-                )
-                for band_name, freq_range in FREQUENCY_BANDS.items()
-            },
-        }
+        # Manually compute spectral bandwidth
+        spectral_bandwidth = compute_spectral_bandwidth(spec, freq_array, centroid)
 
-        # Safe chroma calculation
-        chroma = np.zeros(12)  # Initialize with zeros
-        if np.any(spec > 0):  # Only compute if we have signal
-            try:
-                chroma = librosa.feature.chroma_stft(
-                    S=spec,
-                    sr=sample_rate,
-                    tuning=0.0,
-                    norm=None,  # Avoid normalization issues
-                    n_chroma=12,
-                    n_fft=frame_length,
-                ).mean(axis=1)
-            except Exception as e:
-                logger.debug(f"Chroma calculation failed: {e}")
+        flatness = es.Flatness()(spec)  # Updated to use spectrum
 
-        feature_dict["chroma"] = chroma.tolist()
-        return frame_index, feature_dict
+        # Replace RollOff without 'cutFrequency'
+        rolloff = es.RollOff()(spec)  # Removed cutFrequency parameter
+
+        zcr = es.ZeroCrossingRate()(frame)
+
+        mfcc_alg = es.MFCC(numberCoefficients=13)
+        _, mfcc_out = mfcc_alg(spectrum(windowed_frame))
+
+        # Initialize algorithms for chroma features
+        window = es.Windowing(type="blackmanharris92")
+        spectrum_complex = es.Spectrum(size=frame_length)
+        spectral_peaks = es.SpectralPeaks(
+            orderBy="magnitude",
+            magnitudeThreshold=0.00001,
+            minFrequency=20,
+            maxFrequency=sample_rate / 2,
+            maxPeaks=100,
+        )
+        hpcp = es.HPCP(
+            size=12,
+            referenceFrequency=440,
+            bandPreset=False,
+            minFrequency=20,
+            maxFrequency=sample_rate / 2,
+            weightType="squaredCosine",  # Fixed: changed from 'squared cosine' to 'squaredCosine'
+            nonLinear=False,
+            normalized="unitMax",
+        )
+
+        # Reuse windowed frame for spectrum_complex to avoid reapplying the window
+        windowed = window(frame)
+        frame_spectrum = spectrum_complex(windowed)
+        freqs, mags = spectral_peaks(frame_spectrum)
+
+        # Compute HPCP (chroma) features with error handling
+        try:
+            if len(freqs) > 0:  # Only compute if peaks were found
+                chroma_vector = hpcp(freqs, mags)
+            else:
+                chroma_vector = np.zeros(12, dtype=np.float32)
+
+            # Normalize chroma vector
+            chroma_sum = np.sum(chroma_vector)
+            if chroma_sum > 0:
+                chroma_vector = chroma_vector / chroma_sum
+        except Exception as e:
+            logger.debug(f"HPCP calculation failed for frame {frame_index}: {e}")
+            chroma_vector = np.zeros(12, dtype=np.float32)
+
+        try:
+            # Calculate frequency bands using the cached frequency bins
+            freq_bands = compute_frequency_bands(spec, sample_rate, frame_length)
+
+            feature_dict = {
+                "time": float(frame_index * HOP_LENGTH / sample_rate),
+                "rms": float(np.sqrt(np.mean(frame**2))),
+                "spectral_centroid": float(centroid),
+                "spectral_bandwidth": float(spectral_bandwidth),
+                "spectral_flatness": float(flatness),
+                "spectral_rolloff": float(rolloff),
+                "zero_crossing_rate": float(zcr),
+                "mfcc": [float(x) for x in mfcc_out],
+                "frequency_bands": freq_bands,
+                "chroma": [float(x) for x in chroma_vector],
+            }
+            return frame_index, feature_dict
+
+        except Exception as e:
+            logger.error(f"Frame processing error at {frame_index}: {str(e)}")
+            return frame_index, None
 
     except Exception as e:
         logger.error(f"Frame processing error at {frame_index}: {str(e)}")
@@ -153,6 +252,10 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
     if not frames:
         raise ValueError("No frames could be extracted from audio data")
 
+    # Precompute window_func and freq_array once:
+    window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
+    freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
+
     # Process frames in batches
     valid_features = []
     total_batches = (len(frames) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -165,7 +268,11 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
 
             try:
                 process_func = partial(
-                    process_frame, sample_rate=sample_rate, frame_length=FRAME_LENGTH
+                    process_frame,
+                    sample_rate=sample_rate,
+                    frame_length=FRAME_LENGTH,
+                    window_func=window_func,
+                    freq_array=freq_array,
                 )
 
                 batch_results = list(executor.map(process_func, batch_frames))

@@ -1,6 +1,5 @@
-GPUtil==1.4.0
-GPUtil==1.4.0
-librosa==0.10.2.post1
-numpy==2.2.2
-psutil==6.1.1
+essentia==2.1b6.dev1177
 msgpack==1.1.0
+numpy==2.2.2
+PyYAML==6.0.2
+six==1.17.0
