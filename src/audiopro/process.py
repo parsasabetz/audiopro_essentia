@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 async def analyze_audio(
     file_path: str,
     output_file: str,
-    output_format: str = "json",
+    output_format: str = "msgpack",  # Changed default from "json" to "msgpack"
     skip_monitoring: bool = False,
 ) -> None:
     """
@@ -43,7 +43,7 @@ async def analyze_audio(
     Args:
         file_path: Path to input audio file
         output_file: Path for output file (without extension)
-        output_format: Format of the output file ('json' or 'msgpack')
+        output_format: Format of the output file ('msgpack' by default or 'json' if specified)
         skip_monitoring: Flag to skip performance monitoring
     """
     # Single input validation block
@@ -208,8 +208,8 @@ if __name__ == "__main__":
         "--format",
         type=str,
         choices=["json", "msgpack"],
-        default="json",
-        help="Output format: 'json' (default) or 'msgpack'",
+        default="msgpack",  # Changed default from "json" to "msgpack"
+        help="Output format: 'msgpack' (default) or 'json'",
     )
     parser.add_argument(
         "--skip-monitoring",

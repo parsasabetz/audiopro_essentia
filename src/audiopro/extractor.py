@@ -1,6 +1,6 @@
 """
 Module for audio feature extraction.
-Features are extracted per frame with parallel processing, preserving output order.
+Features are extracted per frame with multiprocessing, preserving output order.
 """
 
 # Standard library imports
@@ -207,7 +207,7 @@ def process_frame(
 
             # Normalize chroma vector
             chroma_sum = np.sum(chroma_vector)
-            if chroma_sum > 0:
+            if (chroma_sum > 0):
                 chroma_vector = chroma_vector / chroma_sum
         except Exception as e:
             logger.debug(f"HPCP calculation failed for frame {frame_index}: {e}")

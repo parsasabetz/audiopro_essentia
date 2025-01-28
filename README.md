@@ -4,6 +4,14 @@ A high-performance audio processing library with built-in performance monitoring
 
 ## Installation
 
+Ensure you have Python 3.7 or higher installed. Install dependencies using pip:
+
+```bash
+pip install -r requirements.txt
+```
+
+- This project uses `essentia` for audio processing and employs multiprocessing for performance optimization.
+
 **Requirements:**
 - Python 3.12 or higher
 - For Apple Silicon users: `xcode-select --install` may be required
@@ -18,29 +26,40 @@ pip install git+ssh://git@github.com/parsasabetz/audiopro.git
 ```python
 from audiopro import analyze_audio
 
-# Default JSON output
+# Default MessagePack output
 analyze_audio(
     file_path="input.mp3",
-    output_file="analysis_output",  # Will create analysis_output.json
+    output_file="analysis_output",  # Creates analysis_output.msgpack
 )
 
-# MessagePack output
+# JSON output (explicitly specified)
 analyze_audio(
     file_path="input.mp3",
     output_file="analysis_output",
-    output_format="msgpack"  # Will create analysis_output.msgpack
+    output_format="json",  # Creates analysis_output.json
+)
+
+# skip monitoring (default: False)
+analyze_audio(
+    file_path="input.mp3",
+    output_file="analysis_output",
+    skip_monitoring=True,
 )
 ```
 
 ### Output Format
 The library supports two output formats:
-- `json` (default): Human-readable JSON format
-- `msgpack`: Binary MessagePack format for efficient storage
+- `msgpack` (default): Binary MessagePack format for efficient storage
+- `json`: Human-readable JSON format
 
 ### Output Structure
 ```python
 {
+    "metadata": { 
+        # ...existing metadata fields...
+    },
     "tempo": float,  # Beats per minute
+    "spectral_bandwidth": float,
     "beats": [float],  # List of beat timestamps in seconds
     "features": [
         {
@@ -48,11 +67,19 @@ The library supports two output formats:
             "rms": float,   # Root mean square energy
             "spectral_centroid": float,
             "spectral_bandwidth": float,
+            "spectral_flatness": float,
+            "spectral_rolloff": float,
+            "zero_crossing_rate": float,
+            "mfcc": [float],
             "frequency_bands": {
-                "low": [float],    # < 250 Hz
-                "mid": [float],    # 250-2000 Hz
-                "high": [float]    # > 2000 Hz
-            }
+                "sub_bass": float,
+                "bass": float,
+                "low_mid": float,
+                "mid": float,
+                "upper_mid": float,
+                "treble": float
+            },
+            "chroma": [float],
         }
     ]
 }
@@ -60,12 +87,12 @@ The library supports two output formats:
 
 ## Features
 
-- **Audio Analysis**: Extract tempo, beats, and spectral features
-- **Performance Monitoring**: Built-in CPU and memory usage tracking
-- **Multi-threaded**: Parallel processing for faster analysis
-- **Flexible Output**: Choose between JSON and MessagePack formats
-- **Resource Efficient**: Optimized for large audio files
-- **GPU Support**: Optional GPU monitoring when available
+- **Audio Analysis**: Extract tempo, beats, and spectral features using `essentia`.
+- **Performance Monitoring**: Built-in CPU and memory usage tracking leveraging multiprocessing.
+- **Multiprocessing**: Parallel processing for faster analysis of large audio files.
+- **Flexible Output**: Choose between JSON and MessagePack formats.
+- **Resource Efficient**: Optimized for large audio files with efficient multiprocessing.
+- **Metadata Extraction**: Extract detailed audio metadata (e.g., duration, sample rate)
 
 ## Project Structure
 ```
@@ -75,6 +102,7 @@ audiopro/
         ├── __init__.py      # Public API
         ├── process.py       # Core processing
         ├── extractor.py     # Feature extraction
+        └── metadata.py      # Metadata extraction
         └── monitor.py       # Performance monitoring
 ```
 
