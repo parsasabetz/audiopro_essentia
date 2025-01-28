@@ -7,7 +7,6 @@ Features are extracted per frame with parallel processing, preserving output ord
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
-import os
 
 # Third-party imports
 import numpy as np
@@ -22,6 +21,7 @@ logger = logging.getLogger(__name__)
 # Constants for audio processing
 FRAME_LENGTH = 2048
 HOP_LENGTH = 512
+BATCH_SIZE = 1000  # Process frames in batches
 FREQUENCY_BANDS = {
     "sub_bass": (20, 60),
     "bass": (60, 250),
@@ -31,9 +31,14 @@ FREQUENCY_BANDS = {
     "treble": (5000, 20000),
 }
 
-# Add max workers constant to prevent resource exhaustion
-MAX_WORKERS = min(8, (os.cpu_count() or 1) + 4)
-BATCH_SIZE = 1000  # Process frames in batches
+
+# Calculate max workers dynamically based on workload
+def calculate_max_workers(
+    audio_data_length: int, frame_length: int, hop_length: int
+) -> int:
+    num_frames = (audio_data_length - frame_length) // hop_length + 1
+    return min(32, max(1, num_frames // 1000))
+
 
 # Cache frequency bins to avoid recalculating for each frame
 FREQS_CACHE = {}
@@ -255,6 +260,9 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
     # Precompute window_func and freq_array once:
     window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
     freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
+
+    # Calculate max workers dynamically
+    MAX_WORKERS = calculate_max_workers(len(audio_data), FRAME_LENGTH, HOP_LENGTH)
 
     # Process frames in batches
     valid_features = []
