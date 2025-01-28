@@ -1,3 +1,27 @@
+## 0.4.0 (2025-01-29)
+
+### BREAKING CHANGE
+
+- The default output format is now MessagePack instead of the previously outputted JSON.
+- This commit replaces the ThreadPoolExecutor with the multiprocessing module for improved performance. The aiofiles library is used for asynchronous file handling and metadata extraction. This means that processing is now done asynchronously, which can improve performance and scalability.
+
+### Feat
+
+- **audiopro**: Implement asynchronous file handling and metadata extraction using aiofiles for processing and metadata
+- **audiopro/extractor**: Replace ThreadPoolExecutor with multiprocessing for improved performance
+- **audiopro/extractor**: Dynamically calculate max workers based on audio data length
+- **audiopro/monitor**: Enhance performance stats reporting with execution summary option
+- **audiopro**: Add option to skip performance monitoring for reduced overhead, modify monitoring to be more efficient
+
+### Fix
+
+- **audiopro/extractor**: Reduce max workers to prevent resource exhaustion
+- **.gitignore**: Update __pycache__ pattern to include nested directories
+
+### Refactor
+
+- **src/audiopro**: Change the default export format from JSON to MessagePack for better performance, update docs to reflect on the change
+
 ## 0.3.0 (2025-01-29)
 
 ### BREAKING CHANGE

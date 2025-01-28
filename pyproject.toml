@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "audiopro"
-version = "0.3.0"
+version = "0.4.0"
 authors = [
   { name="Parsa Sabet", email="parsa2003sabet@icloud.com" }
 ]
