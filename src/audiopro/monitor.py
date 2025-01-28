@@ -59,14 +59,34 @@ def print_performance_stats(
     active_cores_list,
 ):
     """
-    Prints a summary of CPU, memory, and GPU usage, along with execution time.
+    Print performance statistics or basic execution summary.
+
+    This function provides either detailed performance metrics including CPU usage,
+    memory consumption, and core utilization, or a simplified execution summary
+    if performance monitoring was skipped.
 
     Args:
-        start_time: Timestamp at start of processing.
-        end_time: Timestamp at end of processing.
-        cpu_usage_list: Normalized CPU usage data.
-        active_cores_list: List of active core counts over time.
+        start_time (float): Unix timestamp of process start
+        end_time (float): Unix timestamp of process completion
+        cpu_usage_list (List[float]): Collection of CPU usage measurements
+        active_cores_list (List[int]): Collection of active core counts
+
+    Note:
+        - CPU measurements are filtered to remove statistical outliers
+        - Memory usage is reported in GB
+        - If monitoring was skipped (empty lists), only execution time is shown
     """
+    execution_time = end_time - start_time
+    
+    if not cpu_usage_list or not active_cores_list:
+        print("\n" + "=" * 50)
+        print("EXECUTION SUMMARY")
+        print("=" * 50)
+        print(f"\nExecution Time: {execution_time:.4f} seconds")
+        print("Performance monitoring was skipped")
+        print("\n" + "=" * 50)
+        return
+
     process = psutil.Process(os.getpid())
 
     # Vectorized filtering of outliers
