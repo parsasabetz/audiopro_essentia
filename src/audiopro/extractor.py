@@ -32,7 +32,7 @@ FREQUENCY_BANDS = {
 }
 
 # Add max workers constant to prevent resource exhaustion
-MAX_WORKERS = min(32, (os.cpu_count() or 1) + 4)
+MAX_WORKERS = min(8, (os.cpu_count() or 1) + 4)
 BATCH_SIZE = 1000  # Process frames in batches
 
 # Cache frequency bins to avoid recalculating for each frame
