@@ -21,7 +21,7 @@ def monitor_cpu_usage(
     cpu_usage_list: List[float],
     active_cores_list: List[int],
     stop_flag: threading.Event,
-    max_samples: int = 1000, # limit stored samples to 1000
+    max_samples: int = 1000,  # limit stored samples to 1000
 ) -> None:
     """
     Continuously collects per-core CPU usage and normalizes CPU load by core count.
@@ -36,7 +36,7 @@ def monitor_cpu_usage(
     while not stop_flag.is_set():
         try:
             # Single call with a slightly longer interval to reduce overhead
-            per_cpu_percent = psutil.cpu_percent(interval=1.0, percpu=True)
+            per_cpu_percent = psutil.cpu_percent(interval=5, percpu=True)
             cpu_percent = sum(per_cpu_percent) / cpu_count
             active_cores = np.sum(np.array(per_cpu_percent) > 1)
 

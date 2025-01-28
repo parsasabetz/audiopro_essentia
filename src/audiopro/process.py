@@ -30,7 +30,10 @@ logger = logging.getLogger(__name__)
 
 
 def analyze_audio(
-    file_path: str, output_file: str, output_format: str = "json"
+    file_path: str,
+    output_file: str,
+    output_format: str = "json",
+    skip_monitoring: bool = False,
 ) -> None:
     """
     Main function to analyze audio and monitor performance.
@@ -39,6 +42,7 @@ def analyze_audio(
         file_path: Path to input audio file
         output_file: Path for output file (without extension)
         output_format: Format of the output file ('json' or 'msgpack')
+        skip_monitoring: Flag to skip performance monitoring
     """
     # Single input validation block
     output_format = output_format.lower().strip()
@@ -53,18 +57,21 @@ def analyze_audio(
     start_time = time.time()
     cpu_usage_list: List[float] = []
     active_cores_list: List[int] = []
-    stop_flag = threading.Event()
 
-    # Start performance monitoring
-    monitoring_thread = threading.Thread(
-        target=monitor_cpu_usage,
-        args=(
-            cpu_usage_list,
-            active_cores_list,
-            stop_flag,
-        ),
-    )
-    monitoring_thread.start()
+    if not skip_monitoring:
+        stop_flag = threading.Event()
+        monitoring_thread = threading.Thread(
+            target=monitor_cpu_usage,
+            args=(
+                cpu_usage_list,
+                active_cores_list,
+                stop_flag,
+            ),
+        )
+        monitoring_thread.start()
+    else:
+        stop_flag = None
+        monitoring_thread = None
 
     try:
         logger.info(f"Loading audio file: {file_path}")
@@ -164,8 +171,9 @@ def analyze_audio(
         logger.info(f"Analysis saved to {final_output}")
 
         # Stop CPU monitoring
-        stop_flag.set()
-        monitoring_thread.join()
+        if stop_flag and monitoring_thread:
+            stop_flag.set()
+            monitoring_thread.join()
 
         end_time = time.time()
         print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_list)
@@ -174,15 +182,17 @@ def analyze_audio(
         logger.error(f"ValueError: {ve}")
         raise
     except Exception as e:
-        stop_flag.set()
-        monitoring_thread.join()
+        if stop_flag and monitoring_thread:
+            stop_flag.set()
+            monitoring_thread.join()
         logger.error(f"Error analyzing audio: {str(e)}")
         raise
 
     finally:
-        if not stop_flag.is_set():
+        if stop_flag and not stop_flag.is_set():
             stop_flag.set()
-            monitoring_thread.join()
+            if monitoring_thread:
+                monitoring_thread.join()
 
 
 if __name__ == "__main__":
@@ -198,8 +208,18 @@ if __name__ == "__main__":
         default="json",
         help="Output format: 'json' (default) or 'msgpack'",
     )
+    parser.add_argument(
+        "--skip-monitoring",
+        action="store_true",
+        help="Skip performance monitoring to reduce overhead",
+    )
     args = parser.parse_args()
 
     # Simplified extension handling
     output_file = f"{args.output_file}.{args.format}"
-    analyze_audio(args.input_file, output_file, output_format=args.format)
+    analyze_audio(
+        args.input_file,
+        output_file,
+        output_format=args.format,
+        skip_monitoring=args.skip_monitoring,
+    )
