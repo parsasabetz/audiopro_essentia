@@ -60,7 +60,6 @@ def analyze_audio(
     monitoring_thread = threading.Thread(
         target=monitor_cpu_usage,
         args=(
-            psutil.Process(os.getpid()),
             cpu_usage_list,
             active_cores_list,
             stop_flag,

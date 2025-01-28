@@ -3,50 +3,61 @@ Module for system performance monitoring.
 Enhanced docstrings and inline comments for clarity.
 """
 
-import time
-import psutil
-import numpy as np
-import logging
+# Standard library imports
 import os
+import logging
 import threading
 from typing import List
 
-# Make GPUtil import optional
-try:
-    import GPUtil
-    GPU_AVAILABLE = True
-except ImportError:
-    GPU_AVAILABLE = False
-    logging.warning("GPUtil not available. GPU monitoring will be disabled.")
+# Third-party imports
+import numpy as np
+import psutil
 
+# Configure logging
 logger = logging.getLogger(__name__)
 
-def monitor_cpu_usage(process: psutil.Process, 
-                     cpu_usage_list: List[float],
-                     active_cores_list: List[int],
-                     stop_flag: threading.Event) -> None:
+
+def monitor_cpu_usage(
+    cpu_usage_list: List[float],
+    active_cores_list: List[int],
+    stop_flag: threading.Event,
+    max_samples: int = 1000, # limit stored samples to 1000
+) -> None:
     """
     Continuously collects per-core CPU usage and normalizes CPU load by core count.
 
     Args:
-        process: Reference to the current process object.
         cpu_usage_list: List to store CPU usage values (% of a single core).
         active_cores_list: List to track the number of active cores at each measurement.
         stop_flag: Event to signal this monitoring thread to stop.
+        max_samples: Maximum number of samples to store in the lists.
     """
     cpu_count = psutil.cpu_count()
     while not stop_flag.is_set():
-        # Get per-CPU percentage
-        per_cpu_percent = psutil.cpu_percent(interval=0.1, percpu=True)
-        active_cores = sum(1 for cpu in per_cpu_percent if cpu > 1)
-        active_cores_list.append(active_cores)
+        try:
+            # Single call with a slightly longer interval to reduce overhead
+            per_cpu_percent = psutil.cpu_percent(interval=1.0, percpu=True)
+            cpu_percent = sum(per_cpu_percent) / cpu_count
+            active_cores = np.sum(np.array(per_cpu_percent) > 1)
 
-        cpu_percent = process.cpu_percent() / cpu_count
-        if 0 <= cpu_percent <= 100:
+            # Append new samples; remove oldest if size exceeds max_samples
             cpu_usage_list.append(cpu_percent)
-        time.sleep(0.1)
+            if len(cpu_usage_list) > max_samples:
+                cpu_usage_list.pop(0)
 
-def print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_list):
+            active_cores_list.append(active_cores)
+            if len(active_cores_list) > max_samples:
+                active_cores_list.pop(0)
+        except Exception as e:
+            logger.error(f"Error monitoring CPU usage: {str(e)}")
+
+
+def print_performance_stats(
+    start_time,
+    end_time,
+    cpu_usage_list,
+    active_cores_list,
+):
     """
     Prints a summary of CPU, memory, and GPU usage, along with execution time.
 
@@ -58,50 +69,42 @@ def print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_l
     """
     process = psutil.Process(os.getpid())
 
-    # Filter outliers (values beyond 2 standard deviations)
+    # Vectorized filtering of outliers
     if cpu_usage_list:
-        mean_cpu = np.mean(cpu_usage_list)
-        std_cpu = np.std(cpu_usage_list)
-        filtered_measurements = [x for x in cpu_usage_list 
-                               if (mean_cpu - 2 * std_cpu) <= x <= (mean_cpu + 2 * std_cpu)]
-
-        avg_cpu = np.mean(filtered_measurements) if filtered_measurements else 0
-        peak_cpu = np.max(filtered_measurements) if filtered_measurements else 0
+        cpu_array = np.array(cpu_usage_list)
+        mean_cpu = np.mean(cpu_array)
+        std_cpu = np.std(cpu_array)
+        filtered_measurements = cpu_array[
+            (cpu_array >= mean_cpu - 2 * std_cpu)
+            & (cpu_array <= mean_cpu + 2 * std_cpu)
+        ]
+        avg_cpu = (
+            float(np.mean(filtered_measurements)) if filtered_measurements.size else 0
+        )
+        peak_cpu = (
+            float(np.max(filtered_measurements)) if filtered_measurements.size else 0
+        )
     else:
         avg_cpu = peak_cpu = 0
 
     # Memory Info
     memory_info = process.memory_info()
-    memory_used = memory_info.rss / (1024 ** 3)
+    memory_used = memory_info.rss / (1024**3)
     system_memory = psutil.virtual_memory()
-    memory_total = system_memory.total / (1024 ** 3)
-
-    # GPU Info - Only if available
-    gpu_info = []
-    if GPU_AVAILABLE:
-        try:
-            gpus = GPUtil.getGPUs()
-            for gpu in gpus:
-                gpu_info.append({
-                    "name": gpu.name,
-                    "load": f"{gpu.load*100:.1f}%",
-                    "memory_used": f"{gpu.memoryUsed:.1f}MB",
-                    "memory_total": f"{gpu.memoryTotal:.1f}MB"
-                })
-        except Exception as e:
-            logging.warning(f"Failed to get GPU info: {e}")
+    memory_total = system_memory.total / (1024**3)
 
     # Time Info
     execution_time = end_time - start_time
 
-    # Calculate core usage statistics
-    avg_cores = np.mean(active_cores_list) if active_cores_list else 0
-    max_cores = max(active_cores_list) if active_cores_list else 0
+    # Calculate core usage statistics using NumPy
+    active_cores_array = np.array(active_cores_list)
+    avg_cores = float(np.mean(active_cores_array)) if active_cores_array.size else 0
+    max_cores = int(np.max(active_cores_array)) if active_cores_array.size else 0
 
     # Print formatted output
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
     print("PERFORMANCE METRICS")
-    print("="*50)
+    print("=" * 50)
     print(f"\nExecution Time: {execution_time:.4f} seconds")
 
     print("\nProgram CPU Statistics:")
@@ -115,12 +118,4 @@ def print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_l
     print(f"├── Program Memory Usage: {memory_used:.4f} GB")
     print(f"└── System Total Memory: {memory_total:.4f} GB")
 
-    if gpu_info:
-        print("\nGPU Statistics:")
-        for idx, gpu in enumerate(gpu_info):
-            print(f"GPU {idx}:")
-            print(f"├── Name: {gpu['name']}")
-            print(f"├── Load: {gpu['load']}")
-            print(f"├── Memory Used: {gpu['memory_used']}")
-            print(f"└── Memory Total: {gpu['memory_total']}")
-    print("\n" + "="*50)
+    print("\n" + "=" * 50)
