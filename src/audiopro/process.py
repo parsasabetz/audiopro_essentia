@@ -10,12 +10,14 @@ import threading
 import time
 from typing import List
 import argparse
+import asyncio
 
 # Third-party imports
 import essentia.standard as es
 import numpy as np
 import msgpack
 import warnings
+import aiofiles
 
 # Local imports
 from .extractor import extract_features
@@ -29,14 +31,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def analyze_audio(
+async def analyze_audio(
     file_path: str,
     output_file: str,
     output_format: str = "json",
     skip_monitoring: bool = False,
 ) -> None:
     """
-    Main function to analyze audio and monitor performance.
+    Main function to analyze audio and monitor performance asynchronously.
 
     Args:
         file_path: Path to input audio file
@@ -137,7 +139,7 @@ def analyze_audio(
             warnings.simplefilter("ignore", UserWarning)
 
             # Get file metadata from the new module
-            metadata = get_file_metadata(file_path, audio_data, sample_rate)
+            metadata = await get_file_metadata(file_path, audio_data, sample_rate)
 
             # Replace tempo and beat tracking with RhythmExtractor2013
             rhythm_extractor = es.RhythmExtractor2013(method="multifeature")
@@ -161,13 +163,14 @@ def analyze_audio(
             "features": features,
         }
 
-        # Save to file based on the specified format
-        mode = "w" if output_format == "json" else "wb"
-        with open(final_output, mode) as f:
-            if output_format == "json":
-                json.dump(analysis, f, indent=4)
-            else:
-                msgpack.pack(analysis, f)
+        # Use asynchronous file writing
+        if output_format == "json":
+            async with aiofiles.open(final_output, "w") as f:
+                await f.write(json.dumps(analysis, indent=4))
+        else:
+            async with aiofiles.open(final_output, "wb") as f:
+                await asyncio.to_thread(msgpack.pack, analysis, f)
+
         logger.info(f"Analysis saved to {final_output}")
 
         # Stop CPU monitoring
@@ -217,9 +220,11 @@ if __name__ == "__main__":
 
     # Simplified extension handling
     output_file = f"{args.output_file}.{args.format}"
-    analyze_audio(
-        args.input_file,
-        output_file,
-        output_format=args.format,
-        skip_monitoring=args.skip_monitoring,
+    asyncio.run(
+        analyze_audio(
+            args.input_file,
+            output_file,
+            output_format=args.format,
+            skip_monitoring=args.skip_monitoring,
+        )
     )

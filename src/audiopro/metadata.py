@@ -11,19 +11,23 @@ import mimetypes
 
 # Third-party imports
 import numpy as np
+import aiofiles
 
 # Typing imports
 from typing import Dict
 
 
-def calculate_file_hash(
+async def calculate_file_hash(
     file_path: str, block_size=1048576
 ) -> str:  # Increased block_size to 1MB
-    """Calculate SHA-256 hash of file."""
+    """Asynchronously calculate SHA-256 hash of file."""
     sha256_hash = hashlib.sha256()
     try:
-        with open(file_path, "rb") as f:
-            for block in iter(lambda: f.read(block_size), b""):
+        async with aiofiles.open(file_path, "rb") as f:
+            while True:
+                block = await f.read(block_size)
+                if not block:
+                    break
                 sha256_hash.update(block)
     except FileNotFoundError:
         raise ValueError(f"File not found: {file_path}")
@@ -32,9 +36,11 @@ def calculate_file_hash(
     return sha256_hash.hexdigest()
 
 
-def get_file_metadata(file_path: str, audio_data: np.ndarray, sample_rate: int) -> Dict:
+async def get_file_metadata(
+    file_path: str, audio_data: np.ndarray, sample_rate: int
+) -> Dict:
     """
-    Extract relevant metadata about an audio file.
+    Asynchronously extract relevant metadata about an audio file.
 
     Args:
         file_path: Path to the audio file
@@ -65,9 +71,7 @@ def get_file_metadata(file_path: str, audio_data: np.ndarray, sample_rate: int) 
         "file_info": {
             "filename": file_path_obj.name,
             "format": file_path_obj.suffix[1:],
-            "size_mb": float(
-                round(file_stats.st_size / (1024**2), 6)
-            ),  # for 2MB
+            "size_mb": float(round(file_stats.st_size / (1024**2), 6)),  # for 2MB
             "created_date": datetime.datetime.fromtimestamp(
                 file_stats.st_ctime
             ).isoformat(),
@@ -76,7 +80,7 @@ def get_file_metadata(file_path: str, audio_data: np.ndarray, sample_rate: int) 
             ).isoformat(),
             "mime_type": mimetypes.guess_type(file_path)[0]
             or "unknown",  # Handle unknown MIME types
-            "sha256_hash": calculate_file_hash(file_path),
+            "sha256_hash": await calculate_file_hash(file_path),
         },
         "audio_info": {
             "duration_seconds": float(round(duration, 6)),  # More precise duration
