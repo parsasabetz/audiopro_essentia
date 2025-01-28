@@ -5,8 +5,8 @@ Features are extracted per frame with parallel processing, preserving output ord
 
 # Standard library imports
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+import multiprocessing as mp
 
 # Third-party imports
 import numpy as np
@@ -268,7 +268,7 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
     valid_features = []
     total_batches = (len(frames) + BATCH_SIZE - 1) // BATCH_SIZE
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    with mp.Pool(processes=MAX_WORKERS) as pool:
         for batch_idx in range(total_batches):
             start_idx = batch_idx * BATCH_SIZE
             end_idx = min(start_idx + BATCH_SIZE, len(frames))
@@ -283,7 +283,7 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
                     freq_array=freq_array,
                 )
 
-                batch_results = list(executor.map(process_func, batch_frames))
+                batch_results = pool.map(process_func, batch_frames)
 
                 # Process valid results from this batch
                 for idx, feature in sorted(batch_results, key=lambda x: x[0]):
