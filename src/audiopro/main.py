@@ -8,6 +8,7 @@ import os
 import threading
 import time
 from typing import List
+from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
 # Third-party imports
@@ -32,11 +33,11 @@ logger = logging.getLogger(__name__)
 async def analyze_audio(
     file_path: str,
     output_file: str,
-    output_format: str = "msgpack",  # Changed default from "json" to "msgpack"
+    output_format: str = "msgpack",
     skip_monitoring: bool = False,
 ) -> None:
     """
-    Main function to analyze audio and monitor performance asynchronously.
+    Main function to analyze audio and monitor performance.
 
     Args:
         file_path: Path to input audio file
@@ -74,26 +75,44 @@ async def analyze_audio(
         monitoring_thread = None
 
     try:
+        logger.info("Starting audio analysis pipeline...")
+        logger.info(f"Loading audio file: {file_path}")
         audio_data, sample_rate = load_and_preprocess_audio(file_path)
+        logger.info(f"Audio loaded successfully. Sample rate: {sample_rate}Hz")
 
-        # Suppress specific warnings temporarily
-        with warnings.catch_warnings():
-            # Get file metadata from the new module
-            metadata = await get_file_metadata(file_path, audio_data, sample_rate)
+        with ThreadPoolExecutor() as executor:
+            logger.info("Submitting parallel processing tasks...")
+            
+            # Submit tasks with logging
+            logger.info("Extracting metadata...")
+            metadata_future = executor.submit(get_file_metadata, file_path, audio_data, sample_rate)
+            
+            logger.info("Extracting audio features...")
+            features_future = executor.submit(extract_features, audio_data, sample_rate)
+            
+            logger.info("Analyzing rhythm patterns...")
+            rhythm_future = executor.submit(extract_rhythm, audio_data)
 
-            # Extract rhythm features
-            tempo, beat_positions = extract_rhythm(audio_data)
+            # Get results with logging
+            logger.info("Waiting for task completion...")
+            metadata = metadata_future.result()
+            logger.info("Metadata extraction completed")
+            
+            features = features_future.result()
+            logger.info("Feature extraction completed")
+            
+            tempo, beat_positions = rhythm_future.result()
+            logger.info("Rhythm analysis completed")
+            
             beat_times = beat_positions.tolist()
+            logger.info(f"Found {len(beat_times)} beats, tempo: {tempo:.2f} BPM")
 
         # Check if beats are detected to avoid empty frequency sets
         if not beat_times:
             logger.warning("No beats detected in the audio. Skipping beat tracking.")
             tempo = 0.0
 
-        logger.info("Extracting features...")
-        features = extract_features(audio_data, sample_rate)
-
-        # Analysis dictionary
+        logger.info("Compiling analysis results...")
         analysis = {
             "metadata": metadata,
             "tempo": tempo,
@@ -102,9 +121,12 @@ async def analyze_audio(
         }
 
         # Convert all numpy types to native Python types before serialization
+        logger.info("Converting data types for output...")
         analysis = optimized_convert_to_native_types(analysis)
 
+        logger.info(f"Writing output to {final_output}...")
         await write_output(analysis, final_output, output_format)
+        logger.info("Output written successfully")
 
         # Stop CPU monitoring
         if stop_flag and monitoring_thread:
@@ -118,13 +140,14 @@ async def analyze_audio(
         logger.error(f"ValueError: {ve}")
         raise
     except Exception as e:
+        logger.error(f"Analysis failed: {str(e)}")
         if stop_flag and monitoring_thread:
             stop_flag.set()
             monitoring_thread.join()
-        logger.error(f"Error analyzing audio: {str(e)}")
         raise
 
     finally:
+        logger.info("Cleaning up resources...")
         if stop_flag and not stop_flag.is_set():
             stop_flag.set()
             if monitoring_thread:
@@ -133,8 +156,6 @@ async def analyze_audio(
 
 if __name__ == "__main__":
     args = parse_arguments()
-
-    # Simplified extension handling
     output_file = f"{args.output_file}.{args.format}"
     asyncio.run(
         analyze_audio(

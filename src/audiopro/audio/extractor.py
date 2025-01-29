@@ -83,128 +83,54 @@ def compute_frequency_bands(
     return result
 
 
-def process_frame(
-    frame_data: Tuple[int, np.ndarray],
-    sample_rate: int,
-    frame_length: int,
-    window_func: np.ndarray,
-    freq_array: np.ndarray,
-) -> Tuple[int, Optional[Dict]]:
-    """Process a single audio frame with better error handling"""
+def process_frame(frame_data: Tuple[int, np.ndarray], sample_rate: int, frame_length: int, 
+                 window_func: np.ndarray, freq_array: np.ndarray) -> Tuple[int, Optional[Dict]]:
     frame_index, frame = frame_data
 
-    # Validate frame data
     if frame.size == 0 or np.all(np.isnan(frame)):
-        logger.warning(f"Invalid frame data at index {frame_index}")
         return frame_index, None
 
     try:
-        # Ensure FRAME_LENGTH is even
-        assert frame_length % 2 == 0, "FRAME_LENGTH must be even."
+        # Window the frame once
+        frame = np.pad(frame, (0, frame_length - len(frame))) if len(frame) < frame_length else frame
+        frame = frame.astype(np.float32) * window_func
 
-        # Window and pad in one step to avoid memory duplication
-        if len(frame) < frame_length:
-            if len(frame) < frame_length // 2:  # Skip if too short
-                return frame_index, None
-            frame = np.pad(frame, (0, frame_length - len(frame))).astype(
-                np.float32
-            )  # Ensure float32
-            logger.debug(f"Padded frame {frame_index} to length {frame_length}.")
-
-        # Additional check to ensure frame length is even
-        if len(frame) % 2 != 0:
-            frame = np.append(frame, 0.0).astype(np.float32)  # Ensure float32
-            logger.debug(f"Appended zero to frame {frame_index} to make length even.")
-
-        frame *= window_func  # Use precomputed window function
-
-        # Replace window + STFT with Essentia
-        w = es.Windowing(type="hann")
-        spectrum = es.Spectrum()
-        windowed_frame = w(frame)
-        spec = spectrum(windowed_frame)
-
+        # Calculate spectrum once and reuse
+        spectrum_alg = es.Spectrum()
+        spec = spectrum_alg(frame)
+        
         if np.all(spec == 0):
             return frame_index, None
 
-        # Use Essentia algorithms for feature extraction
+        # Feature extraction using the same spectrum
         centroid = es.Centroid(range=sample_rate / 2)(spec)
-
-        # Manually compute spectral bandwidth
         spectral_bandwidth = compute_spectral_bandwidth(spec, freq_array, centroid)
-
-        flatness = es.Flatness()(spec)  # Updated to use spectrum
-
-        # Replace RollOff without 'cutFrequency'
-        rolloff = es.RollOff()(spec)  # Removed cutFrequency parameter
-
-        zcr = es.ZeroCrossingRate()(frame)
-
+        flatness = es.Flatness()(spec)
+        rolloff = es.RollOff()(spec)
+        
+        # MFCC calculation
         mfcc_alg = es.MFCC(numberCoefficients=13)
-        _, mfcc_out = mfcc_alg(spectrum(windowed_frame))
+        _, mfcc_out = mfcc_alg(spec)  # Use existing spectrum
 
-        # Initialize algorithms for chroma features
-        window = es.Windowing(type="blackmanharris92")
-        spectrum_complex = es.Spectrum(size=frame_length)
-        spectral_peaks = es.SpectralPeaks(
-            orderBy="magnitude",
-            magnitudeThreshold=0.00001,
-            minFrequency=20,
-            maxFrequency=sample_rate / 2,
-            maxPeaks=100,
-        )
-        hpcp = es.HPCP(
-            size=12,
-            referenceFrequency=440,
-            bandPreset=False,
-            minFrequency=20,
-            maxFrequency=sample_rate / 2,
-            weightType="squaredCosine",  # Fixed: changed from 'squared cosine' to 'squaredCosine'
-            nonLinear=False,
-            normalized="unitMax",
-        )
+        # Chroma calculation
+        freqs, mags = es.SpectralPeaks()(spec)
+        chroma_vector = es.HPCP()(freqs, mags) if len(freqs) > 0 else np.zeros(12)
 
-        # Reuse windowed frame for spectrum_complex to avoid reapplying the window
-        windowed = window(frame)
-        frame_spectrum = spectrum_complex(windowed)
-        freqs, mags = spectral_peaks(frame_spectrum)
+        # Calculate frequency bands
+        freq_bands = compute_frequency_bands(spec, sample_rate, frame_length)
 
-        # Compute HPCP (chroma) features with error handling
-        try:
-            if len(freqs) > 0:  # Only compute if peaks were found
-                chroma_vector = hpcp(freqs, mags)
-            else:
-                chroma_vector = np.zeros(12, dtype=np.float32)
-
-            # Normalize chroma vector
-            chroma_sum = np.sum(chroma_vector)
-            if chroma_sum > 0:
-                chroma_vector = chroma_vector / chroma_sum
-        except Exception as e:
-            logger.debug(f"HPCP calculation failed for frame {frame_index}: {e}")
-            chroma_vector = np.zeros(12, dtype=np.float32)
-
-        try:
-            # Calculate frequency bands using the cached frequency bins
-            freq_bands = compute_frequency_bands(spec, sample_rate, frame_length)
-
-            feature_dict = {
-                "time": float(frame_index * HOP_LENGTH / sample_rate),
-                "rms": float(np.sqrt(np.mean(frame**2))),
-                "spectral_centroid": float(centroid),
-                "spectral_bandwidth": float(spectral_bandwidth),
-                "spectral_flatness": float(flatness),
-                "spectral_rolloff": float(rolloff),
-                "zero_crossing_rate": float(zcr),
-                "mfcc": [float(x) for x in mfcc_out],
-                "frequency_bands": freq_bands,
-                "chroma": [float(x) for x in chroma_vector],
-            }
-            return frame_index, feature_dict
-
-        except Exception as e:
-            logger.error(f"Frame processing error at {frame_index}: {str(e)}")
-            return frame_index, None
+        return frame_index, {
+            "time": frame_index * HOP_LENGTH / sample_rate,
+            "rms": np.sqrt(np.mean(frame**2)),
+            "spectral_centroid": centroid,
+            "spectral_bandwidth": spectral_bandwidth,
+            "spectral_flatness": flatness,
+            "spectral_rolloff": rolloff,
+            "zero_crossing_rate": es.ZeroCrossingRate()(frame),
+            "mfcc": mfcc_out.tolist(),
+            "frequency_bands": freq_bands,
+            "chroma": chroma_vector.tolist(),
+        }
 
     except Exception as e:
         logger.error(f"Frame processing error at {frame_index}: {str(e)}")

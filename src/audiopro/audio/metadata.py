@@ -11,91 +11,51 @@ import mimetypes
 
 # Third-party imports
 import numpy as np
-import aiofiles
 
 # Typing imports
 from typing import Dict
 
 
-async def calculate_file_hash(
-    file_path: str, block_size=1048576
-) -> str:  # Increased block_size to 1MB
-    """Asynchronously calculate SHA-256 hash of file."""
+def calculate_file_hash(file_path: str, block_size=1048576) -> str:
+    """Calculate SHA-256 hash of file synchronously"""
     sha256_hash = hashlib.sha256()
-    try:
-        async with aiofiles.open(file_path, "rb") as f:
-            while True:
-                block = await f.read(block_size)
-                if not block:
-                    break
-                sha256_hash.update(block)
-    except FileNotFoundError:
-        raise ValueError(f"File not found: {file_path}")
-    except Exception as e:
-        raise RuntimeError(f"Error reading file {file_path}: {str(e)}")
+    with open(file_path, "rb") as f:
+        for block in iter(lambda: f.read(block_size), b""):
+            sha256_hash.update(block)
     return sha256_hash.hexdigest()
 
 
-async def get_file_metadata(
-    file_path: str, audio_data: np.ndarray, sample_rate: int
-) -> Dict:
-    """
-    Asynchronously extract relevant metadata about an audio file.
-
-    Args:
-        file_path: Path to the audio file
-        audio_data: Loaded audio data array
-        sample_rate: Audio sample rate
-
-    Returns:
-        Dictionary containing essential file and audio metadata
-    """
+def get_file_metadata(file_path: str, audio_data: np.ndarray, sample_rate: int) -> Dict:
+    """Simplified metadata extraction"""
     file_stats = os.stat(file_path)
-    file_path_obj = Path(file_path)
-
-    # More precise duration calculation
-    duration = len(audio_data) / float(sample_rate)
-
-    # Normalize audio data for consistent measurements
-    normalized_audio = audio_data / (np.max(np.abs(audio_data)) + np.finfo(float).eps)
-
-    # Accurate peak and RMS calculations using vectorization
-    peak_amplitude = float(np.max(np.abs(audio_data)))
+    path_obj = Path(file_path)
+    
+    # Single pass calculations
+    abs_audio = np.abs(audio_data)
+    peak_amplitude = float(np.max(abs_audio))
     rms_value = float(np.sqrt(np.mean(audio_data**2)))
-
-    # More precise dynamic range calculation with protection against log(0)
-    eps = np.finfo(float).eps  # Smallest positive float value
-    dynamic_range_db = float(20 * np.log10((peak_amplitude + eps) / (rms_value + eps)))
-
-    metadata = {
+    
+    return {
         "file_info": {
-            "filename": file_path_obj.name,
-            "format": file_path_obj.suffix[1:],
-            "size_mb": float(round(file_stats.st_size / (1024**2), 6)),  # for 2MB
-            "created_date": datetime.datetime.fromtimestamp(
-                file_stats.st_ctime
-            ).isoformat(),
-            "mime_type": mimetypes.guess_type(file_path)[0]
-            or "unknown",  # Handle unknown MIME types
-            "sha256_hash": await calculate_file_hash(file_path),
+            "filename": path_obj.name,
+            "format": path_obj.suffix[1:],
+            "size_mb": file_stats.st_size / (1024**2),
+            "created_date": datetime.datetime.fromtimestamp(file_stats.st_ctime).isoformat(),
+            "mime_type": mimetypes.guess_type(file_path)[0] or "unknown",
+            "sha256_hash": calculate_file_hash(file_path),
         },
         "audio_info": {
-            "duration_seconds": float(round(duration, 6)),  # More precise duration
-            "duration_formatted": str(datetime.timedelta(seconds=int(duration))),
-            "sample_rate": int(sample_rate),  # Ensure integer
-            "channels": int(1 if audio_data.ndim == 1 else audio_data.shape[1]),
-            "peak_amplitude": float(round(peak_amplitude, 6)),
-            "rms_amplitude": float(round(rms_value, 6)),
-            "dynamic_range_db": float(round(dynamic_range_db, 2)),
+            "duration_seconds": len(audio_data) / sample_rate,
+            "sample_rate": sample_rate,
+            "channels": 1 if audio_data.ndim == 1 else audio_data.shape[1],
+            "peak_amplitude": peak_amplitude,
+            "rms_amplitude": rms_value,
+            "dynamic_range_db": 20 * np.log10((peak_amplitude + np.finfo(float).eps) / 
+                                            (rms_value + np.finfo(float).eps)),
             "quality_metrics": {
-                "dc_offset": float(round(np.mean(audio_data), 6)),
-                "silence_ratio": float(
-                    round(np.mean(np.abs(normalized_audio) < 0.001), 4)
-                ),
-                "potentially_clipped_samples": int(np.sum(np.abs(audio_data) > 0.99)),
-                "sample_rate_category": "high" if sample_rate >= 44100 else "low",
+                "dc_offset": float(np.mean(audio_data)),
+                "silence_ratio": float(np.mean(abs_audio < 0.001)),
+                "potentially_clipped_samples": int(np.sum(abs_audio > 0.99))
             },
         },
     }
-
-    return metadata
