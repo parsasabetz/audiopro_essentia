@@ -1,7 +1,9 @@
-from .process import analyze_audio
-from .extractor import extract_features
-from .monitor import monitor_cpu_usage, print_performance_stats
-from .metadata import get_file_metadata
+"""Main package exports."""
+
+from .main import analyze_audio
+from .audio.extractor import extract_features
+from .monitor.monitor import monitor_cpu_usage, print_performance_stats
+from .audio.metadata import get_file_metadata
 
 __all__ = [
     "analyze_audio",
