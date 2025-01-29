@@ -15,6 +15,12 @@ import essentia.standard as es
 # Typing imports
 from typing import Dict, List, Optional, Tuple
 
+# Local util imports
+from .utils import (
+    compute_spectral_bandwidth,
+    optimized_convert_to_native_types,
+)
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -42,41 +48,6 @@ def calculate_max_workers(
 
 # Cache frequency bins to avoid recalculating for each frame
 FREQS_CACHE = {}
-
-
-def convert_to_native_types(data):
-    """Convert numpy types to native Python types"""
-    if isinstance(data, np.ndarray):
-        return data.tolist()
-    elif isinstance(data, (np.float32, np.float64)):
-        return float(data)
-    elif isinstance(data, (np.int32, np.int64)):
-        return int(data)
-    elif isinstance(data, dict):
-        return {key: convert_to_native_types(value) for key, value in data.items()}
-    elif isinstance(data, list):
-        return [convert_to_native_types(item) for item in data]
-    return data
-
-
-def compute_spectral_bandwidth(
-    spectrum: np.ndarray, freqs: np.ndarray, centroid: float
-) -> float:
-    """
-    Manually compute the spectral bandwidth.
-
-    Args:
-        spectrum: Magnitude spectrum of the audio frame.
-        freqs: Frequency bins corresponding to the spectrum.
-        centroid: Spectral centroid of the audio frame.
-
-    Returns:
-        Spectral bandwidth as a float.
-    """
-    # Calculate the variance around the centroid
-    variance = np.sum(((freqs - centroid) ** 2) * spectrum) / np.sum(spectrum)
-    # Return the standard deviation as spectral bandwidth
-    return np.sqrt(variance)
 
 
 def compute_frequency_bands(
@@ -300,4 +271,4 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
         raise ValueError("No valid features could be extracted")
 
     # Convert all numpy types to native Python types before returning
-    return convert_to_native_types(valid_features)
+    return optimized_convert_to_native_types(valid_features)

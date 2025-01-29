@@ -3,7 +3,6 @@ Audio Processing and Performance Monitoring Tool
 """
 
 # Standard library imports
-import json
 import logging
 import os
 import threading
@@ -18,9 +17,10 @@ import numpy as np
 import msgpack
 import warnings
 import aiofiles
+import orjson  # Use orjson for faster JSON serialization
 
 # Local imports
-from .extractor import extract_features
+from .extractor import extract_features, optimized_convert_to_native_types
 from .monitor import monitor_cpu_usage, print_performance_stats
 from .metadata import get_file_metadata
 
@@ -105,39 +105,8 @@ async def analyze_audio(
         if signal_energy < 1e-6:
             raise ValueError("Audio signal energy too low for analysis")
 
-        # Compute spectrum once and reuse it
-        w = es.Windowing(type="hann")
-        spectrum = es.Spectrum()
-        windowed_audio = w(audio_data)
-        spec = spectrum(windowed_audio)
-        spectral_flatness = float(es.Flatness()(spec))
-        logger.info(f"Spectral Flatness: {spectral_flatness:.4f}")
-
-        # Define a threshold for spectral flatness (e.g., 0.1)
-        FLATNESS_THRESHOLD = 0.1
-        if spectral_flatness > FLATNESS_THRESHOLD:
-            logger.warning(
-                "Audio has high spectral flatness. Pitch estimation may be unreliable."
-            )
-
-        # Replace STFT frequency content check with simple spectrum check
-        if not np.any(spec):
-            raise ValueError(
-                "Audio data has insufficient frequency content for pitch estimation."
-            )
-
-        # Manually compute spectral bandwidth
-        def compute_spectral_bandwidth(spec, freqs, centroid):
-            return np.sqrt(np.sum(((freqs - centroid) ** 2) * spec) / np.sum(spec))
-
-        freqs = np.fft.rfftfreq(len(audio_data), d=1 / sample_rate)
-        centroid = es.Centroid(range=sample_rate / 2)(spec)
-        spectral_bandwidth = compute_spectral_bandwidth(spec, freqs, centroid)
-
         # Suppress specific warnings temporarily
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", UserWarning)
-
             # Get file metadata from the new module
             metadata = await get_file_metadata(file_path, audio_data, sample_rate)
 
@@ -158,15 +127,17 @@ async def analyze_audio(
         analysis = {
             "metadata": metadata,
             "tempo": tempo,
-            "spectral_bandwidth": spectral_bandwidth,
             "beats": beat_times,
             "features": features,
         }
 
+        # Convert all numpy types to native Python types before serialization
+        analysis = optimized_convert_to_native_types(analysis)
+
         # Use asynchronous file writing
         if output_format == "json":
             async with aiofiles.open(final_output, "w") as f:
-                await f.write(json.dumps(analysis, indent=4))
+                await f.write(orjson.dumps(analysis).decode())
         else:
             # Serialize the analysis dictionary to MessagePack bytes
             packed_data = msgpack.packb(analysis)
