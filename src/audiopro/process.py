@@ -12,17 +12,15 @@ import asyncio
 
 # Third-party imports
 import essentia.standard as es
-import numpy as np
-import msgpack
 import warnings
-import aiofiles
-import orjson  # Use orjson for faster JSON serialization
 
 # Local imports
 from .extractor import extract_features, optimized_convert_to_native_types
 from .monitor import monitor_cpu_usage, print_performance_stats
 from .metadata import get_file_metadata
 from .arg_parser import parse_arguments
+from .audio_loader import load_and_preprocess_audio
+from .output_handler import write_output
 
 # Configure logging
 logging.basicConfig(
@@ -76,34 +74,7 @@ async def analyze_audio(
         monitoring_thread = None
 
     try:
-        logger.info(f"Loading audio file: {file_path}")
-        loader = es.MonoLoader(filename=file_path)
-
-        # If streaming isn't possible, keep as is:
-        audio_data = loader()
-        sample_rate = int(loader.paramValue("sampleRate"))
-
-        # Ensure audio_data has an even length
-        if len(audio_data) % 2 != 0:
-            audio_data = np.append(audio_data, 0.0).astype(np.float32)
-            logger.info("Appended zero to make audio_data length even for FFT.")
-
-        # Check if audio_data is not empty or silent
-        if not np.any(audio_data):
-            raise ValueError("Audio data is empty or silent.")
-
-        # Calculate minimum required samples for pitch estimation
-        min_samples = int(sample_rate * 0.1)  # At least 100ms of audio
-
-        if len(audio_data) < min_samples:
-            raise ValueError(
-                f"Audio file too short. Minimum length required: {min_samples/sample_rate:.2f} seconds"
-            )
-
-        # Check signal energy
-        signal_energy = np.sum(audio_data**2)
-        if signal_energy < 1e-6:
-            raise ValueError("Audio signal energy too low for analysis")
+        audio_data, sample_rate = load_and_preprocess_audio(file_path)
 
         # Suppress specific warnings temporarily
         with warnings.catch_warnings():
@@ -134,17 +105,7 @@ async def analyze_audio(
         # Convert all numpy types to native Python types before serialization
         analysis = optimized_convert_to_native_types(analysis)
 
-        # Use asynchronous file writing
-        if output_format == "json":
-            async with aiofiles.open(final_output, "w") as f:
-                await f.write(orjson.dumps(analysis).decode())
-        else:
-            # Serialize the analysis dictionary to MessagePack bytes
-            packed_data = msgpack.packb(analysis)
-            async with aiofiles.open(final_output, "wb") as f:
-                await f.write(packed_data)
-
-        logger.info(f"Analysis saved to {final_output}")
+        await write_output(analysis, final_output, output_format)
 
         # Stop CPU monitoring
         if stop_flag and monitoring_thread:
