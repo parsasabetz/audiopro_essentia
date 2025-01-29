@@ -75,9 +75,6 @@ async def get_file_metadata(
             "created_date": datetime.datetime.fromtimestamp(
                 file_stats.st_ctime
             ).isoformat(),
-            "modified_date": datetime.datetime.fromtimestamp(
-                file_stats.st_mtime
-            ).isoformat(),
             "mime_type": mimetypes.guess_type(file_path)[0]
             or "unknown",  # Handle unknown MIME types
             "sha256_hash": await calculate_file_hash(file_path),
