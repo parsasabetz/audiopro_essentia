@@ -23,6 +23,7 @@ import orjson  # Use orjson for faster JSON serialization
 from .extractor import extract_features, optimized_convert_to_native_types
 from .monitor import monitor_cpu_usage, print_performance_stats
 from .metadata import get_file_metadata
+from .arg_parser import parse_arguments
 
 # Configure logging
 logging.basicConfig(
@@ -172,24 +173,7 @@ async def analyze_audio(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Analyze audio files.")
-    parser.add_argument("input_file", type=str, help="Path to input audio file")
-    parser.add_argument(
-        "output_file", type=str, help="Name for output file without extension"
-    )
-    parser.add_argument(
-        "--format",
-        type=str,
-        choices=["json", "msgpack"],
-        default="msgpack",  # Changed default from "json" to "msgpack"
-        help="Output format: 'msgpack' (default) or 'json'",
-    )
-    parser.add_argument(
-        "--skip-monitoring",
-        action="store_true",
-        help="Skip performance monitoring to reduce overhead",
-    )
-    args = parser.parse_args()
+    args = parse_arguments()
 
     # Simplified extension handling
     output_file = f"{args.output_file}.{args.format}"
