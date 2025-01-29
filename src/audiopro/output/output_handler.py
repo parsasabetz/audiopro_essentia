@@ -31,14 +31,18 @@ async def write_output(analysis: dict, final_output: str, output_format: str):
         The function uses orjson for JSON encoding and msgpack for MessagePack format.
         File operations are performed asynchronously using aiofiles.
     """
-    # Use asynchronous file writing
-    if output_format == "json":
-        async with aiofiles.open(final_output, "w") as f:
-            await f.write(orjson.dumps(analysis).decode())
-    else:
-        # Serialize the analysis dictionary to MessagePack bytes
-        packed_data = msgpack.packb(analysis)
-        async with aiofiles.open(final_output, "wb") as f:
-            await f.write(packed_data)
+    # Use asynchronous file writing with proper error handling
+    try:
+        if output_format == "json":
+            async with aiofiles.open(final_output, "w") as f:
+                await f.write(orjson.dumps(analysis).decode())
+        else:
+            # Serialize the analysis dictionary to MessagePack bytes
+            packed_data = msgpack.packb(analysis)
+            async with aiofiles.open(final_output, "wb") as f:
+                await f.write(packed_data)
 
-    logger.info(f"Analysis saved to {final_output}")
+        logger.info(f"Analysis saved to {final_output}")
+    except (aiofiles.errors.FileError, orjson.JSONEncodeError, msgpack.exceptions.PackException) as e:
+        logger.error(f"Failed to write output: {str(e)}")
+        raise
