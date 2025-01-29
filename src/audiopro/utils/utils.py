@@ -1,26 +1,6 @@
 import numpy as np
 
 
-def compute_spectral_bandwidth(
-    spectrum: np.ndarray, freqs: np.ndarray, centroid: float
-) -> float:
-    """
-    Manually compute the spectral bandwidth.
-
-    Args:
-        spectrum: Magnitude spectrum of the audio frame.
-        freqs: Frequency bins corresponding to the spectrum.
-        centroid: Spectral centroid of the audio frame.
-
-    Returns:
-        Spectral bandwidth as a float.
-    """
-    # Calculate the variance around the centroid
-    variance = np.sum(((freqs - centroid) ** 2) * spectrum) / np.sum(spectrum)
-    # Return the standard deviation as spectral bandwidth
-    return np.sqrt(variance)
-
-
 def optimized_convert_to_native_types(data):
     """Convert numpy types to native Python types using vectorized operations"""
     if isinstance(data, np.ndarray):
