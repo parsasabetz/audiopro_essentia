@@ -1,3 +1,39 @@
+## 0.5.0 (2025-01-30)
+
+### BREAKING CHANGE
+
+- metadata and rhythm extraction are now sync functions
+
+### Feat
+
+- **audiopro**: Enhance output writing with error handling for asynchronous file operations
+- **audiopro**: Integrate rhythm extraction functionality into audio analysis process by utility imports
+- **audiopro**: Move spectral bandwidth computation to audio module and add rhythm extraction function
+- **audiopro**: Add asynchronous audio analysis with performance monitoring and flexible output format support, now in the `main.py` file
+- **audiopro**: Add asynchronous output handler for analysis results with JSON and MessagePack support, to the output directory
+- **audiopro**: Add utility functions for spectral bandwidth computation and optimized type conversion, in their own directory
+- **monitor**: Add CPU and performance monitoring module with enhanced docstrings and output handling, in their own directory
+- **audio**: Add audio loading and metadata extraction modules with preprocessing and async hash calculation, in their own directory
+- **audiopro**: Add audio loading and preprocessing functionality with async output handling, extract these features from the process file to their own files
+
+### Fix
+
+- **.gitignore**: Update ignore rules to correctly exclude all __pycache__ directories
+- **audiopro/process**: Optimize audio analysis output by directly serializing to MessagePack bytes
+
+### Refactor
+
+- **audiopro**: Remove `modified_date` from file metadata retrieval for cleaner output
+- **audiopro**: Update package exports and remove unused modules for cleaner structure, now using a better folder structure
+- **process**: Remove unused argparse import from process.py
+- **audiopro/process**: Extract argument parsing logic to a separate module and update default output format to MessagePack
+- **audiopro**: Move spectral bandwidth computation and type conversion to utils, optimize type conversion method
+
+### Perf
+
+- **core**: optimize audio processing pipeline
+- **audiopro**: Combine empty/silent check with signal energy validation in audio loading process
+
 ## 0.4.0 (2025-01-29)
 
 ### BREAKING CHANGE
