@@ -35,8 +35,8 @@ def monitor_cpu_usage(
     cpu_count = psutil.cpu_count()
     while not stop_flag.is_set():
         try:
-            # Single call with a slightly longer interval to reduce overhead
-            per_cpu_percent = psutil.cpu_percent(interval=5, percpu=True)
+            # Single call with per-core usage
+            per_cpu_percent = psutil.cpu_percent(interval=1, percpu=True)
             cpu_percent = sum(per_cpu_percent) / cpu_count
             active_cores = np.sum(np.array(per_cpu_percent) > 1)
 
