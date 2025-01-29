@@ -11,14 +11,13 @@ from typing import List
 import asyncio
 
 # Third-party imports
-import essentia.standard as es
 import warnings
 
 # Local imports
 from .arg_parser import parse_arguments
 from .audio.audio_loader import load_and_preprocess_audio
 from .audio.extractor import extract_features
-from .utils import optimized_convert_to_native_types
+from .utils import optimized_convert_to_native_types, extract_rhythm
 from .audio.metadata import get_file_metadata
 from .monitor.monitor import monitor_cpu_usage, print_performance_stats
 from .output.output_handler import write_output
@@ -82,9 +81,8 @@ async def analyze_audio(
             # Get file metadata from the new module
             metadata = await get_file_metadata(file_path, audio_data, sample_rate)
 
-            # Replace tempo and beat tracking with RhythmExtractor2013
-            rhythm_extractor = es.RhythmExtractor2013(method="multifeature")
-            tempo, beat_positions, _, _, _ = rhythm_extractor(audio_data)
+            # Extract rhythm features
+            tempo, beat_positions = extract_rhythm(audio_data)
             beat_times = beat_positions.tolist()
 
         # Check if beats are detected to avoid empty frequency sets
