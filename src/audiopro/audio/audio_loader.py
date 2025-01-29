@@ -45,9 +45,11 @@ def load_and_preprocess_audio(file_path: str):
         audio_data = np.append(audio_data, 0.0).astype(np.float32)
         logger.info("Appended zero to make audio_data length even for FFT.")
 
-    # Check if audio_data is not empty or silent
-    if not np.any(audio_data):
-        raise ValueError("Audio data is empty or silent.")
+    # Combine empty/silent check with signal energy check to reduce redundancy
+    signal_energy = np.sum(audio_data**2)
+    if not np.any(audio_data) or signal_energy < 1e-6:
+        logger.error("Audio data is empty, silent, or has insufficient energy.")
+        raise ValueError("Audio data is empty, silent, or has insufficient energy.")
 
     # Calculate minimum required samples for pitch estimation
     min_samples = int(sample_rate * 0.1)  # At least 100ms of audio
@@ -56,10 +58,5 @@ def load_and_preprocess_audio(file_path: str):
         raise ValueError(
             f"Audio file too short. Minimum length required: {min_samples/sample_rate:.2f} seconds"
         )
-
-    # Check signal energy
-    signal_energy = np.sum(audio_data**2)
-    if signal_energy < 1e-6:
-        raise ValueError("Audio signal energy too low for analysis")
 
     return audio_data, sample_rate
