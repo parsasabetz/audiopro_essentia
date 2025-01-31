@@ -53,10 +53,8 @@ async def analyze_audio(
     if output_format not in ["json", "msgpack"]:
         raise ValueError("output_format must be either 'json' or 'msgpack'")
 
-    # Single extension handling
+    # Single extension handling (without logging)
     final_output = f"{os.path.splitext(output_path)[0]}.{output_format}"
-    logger.info("Output format: %s", output_format)
-    logger.info("Output file will be: %s", final_output)
 
     start_time = time.time()
     cpu_usage_list: List[float] = []
@@ -117,8 +115,8 @@ async def analyze_audio(
             logger.warning("No beats detected in the audio. Skipping beat tracking.")
             tempo = 0.0
 
-        # Compile analysis results, and convert to native types
-        logger.info("Compiling analysis results & convert to native types...")
+        # Compile analysis results
+        logger.info("Compiling analysis results...")
         analysis: AudioAnalysis = optimized_convert_to_native_types(
             {
                 "metadata": metadata,
@@ -128,9 +126,8 @@ async def analyze_audio(
             }
         )
 
-        logger.info("Writing output to %s...", final_output)
+        # Write output without redundant logging
         await write_output(analysis, final_output, output_format)
-        logger.info("Output written successfully")
 
         # Stop CPU monitoring
         if stop_flag and monitoring_thread:
