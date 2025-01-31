@@ -94,9 +94,7 @@ async def analyze_audio(
                 monitoring_thread.start()
 
             logger.info("Starting audio analysis pipeline...")
-            logger.info("Loading audio file: %s", file_path)
             audio_data, sample_rate = load_and_preprocess_audio(file_path)
-            logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
 
             with ThreadPoolExecutor() as executor:
                 logger.info("Submitting parallel processing tasks...")

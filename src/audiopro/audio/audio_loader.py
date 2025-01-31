@@ -59,4 +59,5 @@ def load_and_preprocess_audio(file_path: str):
             f"Audio file too short. Minimum length required: {min_samples/sample_rate:.2f} seconds"
         )
 
+    logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
     return audio_data, sample_rate
