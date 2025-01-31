@@ -1,3 +1,50 @@
+## 0.6.0 (2025-01-31)
+
+### Feat
+
+- **logger**: implement singleton logger with global exception handling and memory optimization
+- **output**: enhance output handling with `AudioAnalysis` type and improve function signatures
+- **output**: add type definitions for audio analysis output
+
+### Fix
+
+- **logger**: enhance LoggerSingleton class with detailed docstrings and improve handler management, include file name in the logs properly
+- **utils**: restore `optimized_convert_to_native_types` to module exports
+- **monitor**: improve error handling in CPU usage monitoring and enhance code clarity
+- **metadata**: enhance error handling and logging in file hash calculation
+- **logging**: update logger message formatting in `load_and_preprocess_audio` function
+- **types**: add missing newline for improved readability in AudioFeature class
+- **analyze_audio**: rename `output_file` parameter to `output_path` for clarity
+
+### Refactor
+
+- **logging**: streamline audio loading logs by removing redundant messages
+- **extractor**: move audio processing constants to utils for better organization
+- **utils**: add constants for audio processing and update exports
+- **main**: improve code formatting and enhance readability in audio analysis function
+- **main**: implement graceful shutdown context manager and improve CPU monitoring logic
+- **extractor**: implement memory-efficient frame generator and adjust batch processing logic
+- **monitor**: adjust CPU usage monitoring timeout and improve error handling
+- **output**: enhance output writing with improved error handling and serialization for JSON and MessagePack formats
+- **logging**: streamline logging in audio analysis and output handling, reducing redundancy and improving clarity
+- **logging**: replace standard logging with custom logger in audio, monitor, and output modules for consistency
+- **metadata**: enhance docstrings for `calculate_file_hash` and `get_file_metadata` functions for better clarity and detail
+- **logging**: replace standard logging setup with custom logger for consistency across modules
+- **audio**: implement singleton pattern for rhythm extraction for better efficiency and enhance error handling
+- **utils**: enhance `optimized_convert_to_native_types` for improved type handling and efficiency
+- **pylintrc**: reduce max-statements limit for improved code maintainability
+- **extractor**: improve readability and error handling in `process_frame` and `extract_features` functions
+- **extractor**: reorganize imports for clarity and consistency
+- **audio**: remove unused import of warnings for cleaner code
+- **output_handler**: enhance logging format by using placeholders for consistency
+- **analyze_audio**: improve logging format and consistency by using placeholders
+- **analyze_audio**: streamline analysis result compilation and type conversion
+- **main**: remove unused warnings import for cleaner code
+
+### Perf
+
+- **monitor**: reduce CPU usage monitoring interval for improved responsiveness
+
 ## 0.5.0 (2025-01-30)
 
 ### BREAKING CHANGE
