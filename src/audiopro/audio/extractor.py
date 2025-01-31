@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 # Standard library imports
 from functools import partial
 import multiprocessing as mp
+from itertools import islice
 
 # Third-party imports
 import numpy as np
@@ -154,10 +155,13 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
 
     # Calculate frames
     try:
-        frames = [
-            (i, audio_data[i : i + FRAME_LENGTH])
-            for i in range(0, len(audio_data) - FRAME_LENGTH + 1, HOP_LENGTH)
-        ]
+
+        def frame_generator():
+            """Memory efficient frame generator."""
+            for i in range(0, len(audio_data) - FRAME_LENGTH + 1, HOP_LENGTH):
+                yield (i, audio_data[i : i + FRAME_LENGTH])
+
+        frames = frame_generator()
     except (ValueError, RuntimeError, MemoryError) as e:
         raise ValueError(f"Failed to create frames: {str(e)}") from e
 
@@ -173,13 +177,15 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
 
     # Process frames in batches
     valid_features = []
-    total_batches = (len(frames) + BATCH_SIZE - 1) // BATCH_SIZE
+    total_batches = (len(audio_data) - FRAME_LENGTH + 1) // (
+        BATCH_SIZE * HOP_LENGTH
+    ) + 1
 
     with mp.Pool(processes=MAX_WORKERS) as pool:
         for batch_idx in range(total_batches):
             start_idx = batch_idx * BATCH_SIZE
-            end_idx = min(start_idx + BATCH_SIZE, len(frames))
-            batch_frames = frames[start_idx:end_idx]
+            end_idx = min(start_idx + BATCH_SIZE, len(audio_data) - FRAME_LENGTH + 1)
+            batch_frames = list(islice(frames, start_idx, end_idx))
 
             try:
                 process_func = partial(
