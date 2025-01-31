@@ -6,7 +6,6 @@ Module for handling audio file metadata extraction.
 from typing import Dict
 
 # Standard library imports
-import logging
 import os
 import datetime
 from pathlib import Path
@@ -24,7 +23,21 @@ logger = get_logger()
 
 
 def calculate_file_hash(file_path: str, block_size=1048576) -> str:
-    """Calculate SHA-256 hash of file synchronously"""
+    """
+    Calculate the SHA-256 hash of a file synchronously.
+
+    Args:
+        file_path (str): The path to the file for which the hash is to be calculated.
+        block_size (int, optional): The size of each block to read from the file. Defaults to 1048576 bytes (1 MB).
+
+    Returns:
+        str: The SHA-256 hash of the file in hexadecimal format. If an error occurs, returns "hash_calculation_failed".
+
+    Raises:
+        IOError: If an I/O error occurs while reading the file.
+        OSError: If an OS-related error occurs while reading the file.
+    """
+
     sha256_hash = hashlib.sha256()
     try:
         with open(file_path, "rb") as f:
@@ -37,7 +50,36 @@ def calculate_file_hash(file_path: str, block_size=1048576) -> str:
 
 
 def get_file_metadata(file_path: str, audio_data: np.ndarray, sample_rate: int) -> Dict:
-    """Simplified metadata extraction"""
+    """
+    Extracts and returns metadata information from an audio file.
+
+    Args:
+        file_path (str): The path to the audio file.
+        audio_data (np.ndarray): The audio data as a NumPy array.
+        sample_rate (int): The sample rate of the audio data.
+
+    Returns:
+        Dict: A dictionary containing file and audio metadata, including:
+            - file_info:
+                - filename (str): The name of the file.
+                - format (str): The file format (extension).
+                - size_mb (float): The size of the file in megabytes.
+                - created_date (str): The creation date of the file in ISO format.
+                - mime_type (str): The MIME type of the file.
+                - sha256_hash (str): The SHA-256 hash of the file.
+            - audio_info:
+                - duration_seconds (float): The duration of the audio in seconds.
+                - sample_rate (int): The sample rate of the audio.
+                - channels (int): The number of audio channels.
+                - peak_amplitude (float): The peak amplitude of the audio.
+                - rms_amplitude (float): The root mean square (RMS) amplitude of the audio.
+                - dynamic_range_db (float): The dynamic range of the audio in decibels.
+                - quality_metrics:
+                    - dc_offset (float): The DC offset of the audio.
+                    - silence_ratio (float): The ratio of silent samples in the audio.
+                    - potentially_clipped_samples (int): The number of potentially clipped samples.
+    """
+
     file_stats = os.stat(file_path)
     path_obj = Path(file_path)
 
