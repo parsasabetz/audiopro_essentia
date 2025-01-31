@@ -59,6 +59,7 @@ class AudioFeature(TypedDict):
         frequency_bands (FrequencyBands): Energy distribution across frequency bands.
         chroma (List[float]): Distribution of spectral energy across the 12 pitch classes (12 values).
     """
+
     time: float
     rms: float
     spectral_centroid: float
