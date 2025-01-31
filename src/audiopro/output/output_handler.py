@@ -22,8 +22,6 @@ async def write_output(analysis: AudioAnalysis, final_output: str, output_format
         final_output (str): Path to the output file where results will be saved
         output_format (str): Format to save the file in - either "json" or MessagePack
 
-    Returns:
-        None
 
     Raises:
         aiofiles.errors.FileError: If there are issues with file operations
@@ -45,7 +43,11 @@ async def write_output(analysis: AudioAnalysis, final_output: str, output_format
             async with aiofiles.open(final_output, "wb") as f:
                 await f.write(packed_data)
 
-        logger.info(f"Analysis saved to {final_output}")
-    except (aiofiles.errors.FileError, orjson.JSONEncodeError, msgpack.exceptions.PackException) as e:
-        logger.error(f"Failed to write output: {str(e)}")
+        logger.info("Analysis saved to %s", final_output)
+    except (
+        aiofiles.errors.FileError,
+        orjson.JSONEncodeError,
+        msgpack.exceptions.PackException,
+    ) as e:
+        logger.error("Failed to write output: %s", str(e))
         raise
