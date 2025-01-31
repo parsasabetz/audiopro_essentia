@@ -6,16 +6,19 @@ import aiofiles
 import msgpack
 import orjson
 
+# Local imports
+from .types import AudioAnalysis
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-async def write_output(analysis: dict, final_output: str, output_format: str):
+async def write_output(analysis: AudioAnalysis, final_output: str, output_format: str):
     """
     Asynchronously writes analysis results to a file in either JSON or MessagePack format.
 
     Args:
-        analysis (dict): Dictionary containing the analysis results to be written
+        analysis (AudioAnalysis): Dictionary containing the analysis results to be written
         final_output (str): Path to the output file where results will be saved
         output_format (str): Format to save the file in - either "json" or MessagePack
 

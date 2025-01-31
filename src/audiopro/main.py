@@ -15,13 +15,23 @@ import asyncio
 import warnings
 
 # Local imports
+# CLI parsing
 from .arg_parser import parse_arguments
+
+# Audio processing
 from .audio.audio_loader import load_and_preprocess_audio
 from .audio.extractor import extract_features
-from .utils import optimized_convert_to_native_types, extract_rhythm
 from .audio.metadata import get_file_metadata
+
+# Analysis utilities
+from .utils import optimized_convert_to_native_types, extract_rhythm
+
+# Performance monitoring
 from .monitor.monitor import monitor_cpu_usage, print_performance_stats
+
+# Output handling
 from .output.output_handler import write_output
+from .output.types import AudioAnalysis
 
 # Configure logging
 logging.basicConfig(
@@ -82,14 +92,16 @@ async def analyze_audio(
 
         with ThreadPoolExecutor() as executor:
             logger.info("Submitting parallel processing tasks...")
-            
+
             # Submit tasks with logging
             logger.info("Extracting metadata...")
-            metadata_future = executor.submit(get_file_metadata, file_path, audio_data, sample_rate)
-            
+            metadata_future = executor.submit(
+                get_file_metadata, file_path, audio_data, sample_rate
+            )
+
             logger.info("Extracting audio features...")
             features_future = executor.submit(extract_features, audio_data, sample_rate)
-            
+
             logger.info("Analyzing rhythm patterns...")
             rhythm_future = executor.submit(extract_rhythm, audio_data)
 
@@ -97,13 +109,13 @@ async def analyze_audio(
             logger.info("Waiting for task completion...")
             metadata = metadata_future.result()
             logger.info("Metadata extraction completed")
-            
+
             features = features_future.result()
             logger.info("Feature extraction completed")
-            
+
             tempo, beat_positions = rhythm_future.result()
             logger.info("Rhythm analysis completed")
-            
+
             beat_times = beat_positions.tolist()
             logger.info(f"Found {len(beat_times)} beats, tempo: {tempo:.2f} BPM")
 
@@ -113,7 +125,7 @@ async def analyze_audio(
             tempo = 0.0
 
         logger.info("Compiling analysis results...")
-        analysis = {
+        analysis: AudioAnalysis = {
             "metadata": metadata,
             "tempo": tempo,
             "beats": beat_times,
