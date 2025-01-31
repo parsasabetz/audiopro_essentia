@@ -34,7 +34,7 @@ def load_and_preprocess_audio(file_path: str):
         - The audio is converted to mono during loading
         - Minimum audio length required is 100ms
     """
-    logger.info(f"Loading audio file: {file_path}")
+    logger.info("Loading audio file: %s", file_path)
     loader = es.MonoLoader(filename=file_path)
 
     audio_data = loader()
