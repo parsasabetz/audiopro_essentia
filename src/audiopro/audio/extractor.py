@@ -7,7 +7,6 @@ Features are extracted per frame with multiprocessing, preserving output order.
 from typing import Dict, List, Optional, Tuple
 
 # Standard library imports
-import logging
 from functools import partial
 import multiprocessing as mp
 
@@ -21,8 +20,10 @@ from audiopro.utils import (
     optimized_convert_to_native_types,
 )
 
+from audiopro.utils.logger import get_logger
+
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 # Constants for audio processing
 FRAME_LENGTH = 2048

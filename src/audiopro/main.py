@@ -3,7 +3,6 @@ Audio Processing and Performance Monitoring Tool
 """
 
 # Standard library imports
-import logging
 import os
 import threading
 import time
@@ -21,7 +20,7 @@ from .audio.extractor import extract_features
 from .audio.metadata import get_file_metadata
 
 # Analysis utilities
-from .utils import optimized_convert_to_native_types, extract_rhythm
+from .utils import optimized_convert_to_native_types, extract_rhythm, get_logger
 
 # Performance monitoring
 from .monitor.monitor import monitor_cpu_usage, print_performance_stats
@@ -30,11 +29,7 @@ from .monitor.monitor import monitor_cpu_usage, print_performance_stats
 from .output.output_handler import write_output
 from .output.types import AudioAnalysis
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def analyze_audio(
@@ -151,7 +146,7 @@ async def analyze_audio(
         logger.error("Analysis failed: %s", str(e))
         if stop_flag and monitoring_thread:
             stop_flag.set()
-            monitoring_thread.join()
+            stop_flag.join()
         raise
 
     finally:

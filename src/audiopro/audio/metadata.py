@@ -16,11 +16,11 @@ import mimetypes
 # Third-party imports
 import numpy as np
 
+# Local imports
+from audiopro.utils.logger import get_logger
+
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 def calculate_file_hash(file_path: str, block_size=1048576) -> str:
