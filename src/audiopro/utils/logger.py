@@ -1,5 +1,5 @@
 # typing imports
-from typing import Optional
+from typing import Dict
 
 # Standard library imports
 import logging
@@ -10,52 +10,91 @@ from functools import lru_cache
 
 
 class LoggerSingleton:
-    """Thread-safe singleton logger class with memory optimization."""
+    """
+    LoggerSingleton is a thread-safe singleton logger class with memory optimization.
 
-    _instance: Optional[logging.Logger] = None
-    _log_format = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    Class Attributes:
+        _loggers (Dict[str, logging.Logger]): A dictionary to store logger instances.
+        _formatter (logging.Formatter): A formatter for log messages.
+        _handler (logging.Handler): A handler for log messages.
+
+    Class Methods:
+        _get_handler() -> logging.Handler:
+            Returns a stream handler for logging, creating it if it doesn't exist.
+        
+        get_logger(name: str = "audiopro") -> logging.Logger:
+            Returns a logger instance with the specified name, creating it if it doesn't exist.
+            The logger is configured with a stream handler and a specific formatter.
+        
+        shutdown():
+            Cleans up logging resources by closing the handler and clearing the loggers dictionary.
+    """
+
+    _loggers: Dict[str, logging.Logger] = {}
+    _formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    _handler = None
 
     @classmethod
-    @lru_cache(maxsize=1)  # Cache the logger creation
+    def _get_handler(cls):
+        if cls._handler is None:
+            cls._handler = logging.StreamHandler(sys.stdout)
+            cls._handler.setFormatter(cls._formatter)
+        return cls._handler
+
+    @classmethod
+    @lru_cache(maxsize=None)
     def get_logger(cls, name: str = "audiopro") -> logging.Logger:
-        """Get or create logger instance with memory optimization."""
-        if cls._instance is None:
-            cls._instance = logging.getLogger(name)
+        """Get or create logger instance with proper module hierarchy."""
+        if name not in cls._loggers:
+            logger = logging.getLogger(name)
 
-            if not cls._instance.handlers:
-                # Use a single handler and formatter for all loggers
-                handler = logging.StreamHandler(sys.stdout)
-                formatter = logging.Formatter(cls._log_format)
-                handler.setFormatter(formatter)
-                cls._instance.addHandler(handler)
+            if not logger.handlers:
+                logger.addHandler(cls._get_handler())
+                logger.setLevel(logging.INFO)
+                logger.propagate = False
 
-                # Set level at logger, not handler (more efficient)
-                cls._instance.setLevel(logging.INFO)
+            cls._loggers[name] = logger
 
-                # Prevent propagation for better performance
-                cls._instance.propagate = False
-
-        return cls._instance
+        return cls._loggers[name]
 
     @classmethod
     def shutdown(cls):
         """Clean up logging resources."""
-        if cls._instance:
-            for handler in cls._instance.handlers:
-                handler.close()
-            cls._instance = None
+        if cls._handler:
+            cls._handler.close()
+            cls._handler = None
+        cls._loggers.clear()
         logging.shutdown()
 
 
 # Efficient cached getter function
 @lru_cache(maxsize=None)
 def get_logger(name: str = "audiopro") -> logging.Logger:
-    """Memory-efficient logger accessor."""
+    """
+    Get a logger with the specified name.
+
+    Args:
+        name (str): The name of the logger. Defaults to "audiopro".
+
+    Returns:
+        logging.Logger: A logger instance with the specified name.
+    """
     return LoggerSingleton.get_logger(name)
 
 
 def handle_exception(exc_type, exc_value, exc_traceback):
-    """Global exception handler to ensure exceptions are logged"""
+    """
+    Global exception handler to ensure exceptions are logged.
+
+    This function will be used as a global exception handler to log any uncaught exceptions.
+    If the exception is a KeyboardInterrupt, it will call the default exception hook.
+    Otherwise, it will log the exception details using the LoggerSingleton.
+
+    Args:
+        exc_type (type): The exception type.
+        exc_value (Exception): The exception instance.
+        exc_traceback (traceback): The traceback object.
+    """
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
