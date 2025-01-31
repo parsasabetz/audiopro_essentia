@@ -83,8 +83,13 @@ def compute_frequency_bands(
     return result
 
 
-def process_frame(frame_data: Tuple[int, np.ndarray], sample_rate: int, frame_length: int, 
-                 window_func: np.ndarray, freq_array: np.ndarray) -> Tuple[int, Optional[Dict]]:
+def process_frame(
+    frame_data: Tuple[int, np.ndarray],
+    sample_rate: int,
+    frame_length: int,
+    window_func: np.ndarray,
+    freq_array: np.ndarray,
+) -> Tuple[int, Optional[Dict]]:
     frame_index, frame = frame_data
 
     if frame.size == 0 or np.all(np.isnan(frame)):
@@ -92,13 +97,17 @@ def process_frame(frame_data: Tuple[int, np.ndarray], sample_rate: int, frame_le
 
     try:
         # Window the frame once
-        frame = np.pad(frame, (0, frame_length - len(frame))) if len(frame) < frame_length else frame
+        frame = (
+            np.pad(frame, (0, frame_length - len(frame)))
+            if len(frame) < frame_length
+            else frame
+        )
         frame = frame.astype(np.float32) * window_func
 
         # Calculate spectrum once and reuse
         spectrum_alg = es.Spectrum()
         spec = spectrum_alg(frame)
-        
+
         if np.all(spec == 0):
             return frame_index, None
 
@@ -107,7 +116,7 @@ def process_frame(frame_data: Tuple[int, np.ndarray], sample_rate: int, frame_le
         spectral_bandwidth = compute_spectral_bandwidth(spec, freq_array, centroid)
         flatness = es.Flatness()(spec)
         rolloff = es.RollOff()(spec)
-        
+
         # MFCC calculation
         mfcc_alg = es.MFCC(numberCoefficients=13)
         _, mfcc_out = mfcc_alg(spec)  # Use existing spectrum
@@ -132,8 +141,8 @@ def process_frame(frame_data: Tuple[int, np.ndarray], sample_rate: int, frame_le
             "chroma": chroma_vector.tolist(),
         }
 
-    except Exception as e:
-        logger.error(f"Frame processing error at {frame_index}: {str(e)}")
+    except (ValueError, RuntimeError, MemoryError) as e:
+        logger.error("Frame processing error at %d: %s", frame_index, str(e))
         return frame_index, None
 
 
@@ -148,8 +157,8 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
             (i, audio_data[i : i + FRAME_LENGTH])
             for i in range(0, len(audio_data) - FRAME_LENGTH + 1, HOP_LENGTH)
         ]
-    except Exception as e:
-        raise ValueError(f"Failed to create frames: {str(e)}")
+    except (ValueError, RuntimeError, MemoryError) as e:
+        raise ValueError(f"Failed to create frames: {str(e)}") from e
 
     if not frames:
         raise ValueError("No frames could be extracted from audio data")
@@ -183,14 +192,14 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> List[Dict]:
                 batch_results = pool.map(process_func, batch_frames)
 
                 # Process valid results from this batch
-                for idx, feature in sorted(batch_results, key=lambda x: x[0]):
+                for _, feature in sorted(batch_results, key=lambda x: x[0]):
                     if feature is not None and isinstance(feature, dict):
                         valid_features.append(feature)
 
-                logger.info(f"Processed batch {batch_idx + 1}/{total_batches}")
+                logger.info("Processed batch %d/%d", batch_idx + 1, total_batches)
 
-            except Exception as e:
-                logger.error(f"Error processing batch {batch_idx + 1}: {str(e)}")
+            except (ValueError, RuntimeError, MemoryError) as e:
+                logger.error("Error processing batch %d: %s", batch_idx + 1, str(e))
                 continue  # Continue with next batch instead of failing completely
 
     if not valid_features:
