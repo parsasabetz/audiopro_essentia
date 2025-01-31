@@ -55,11 +55,30 @@ The library supports two output formats:
 ### Output Structure
 ```python
 {
-    "metadata": { 
-        # ...existing metadata fields...
+    "metadata": {
+        "file_info": {
+            "filename": str,
+            "format": str,
+            "size_mb": float,
+            "created_date": str,  # ISO format
+            "mime_type": str,
+            "sha256_hash": str
+        },
+        "audio_info": {
+            "duration_seconds": float,
+            "sample_rate": int,
+            "channels": int,
+            "peak_amplitude": float,
+            "rms_amplitude": float,
+            "dynamic_range_db": float,
+            "quality_metrics": {
+                "dc_offset": float,
+                "silence_ratio": float,
+                "potentially_clipped_samples": int
+            }
+        }
     },
     "tempo": float,  # Beats per minute
-    "spectral_bandwidth": float,
     "beats": [float],  # List of beat timestamps in seconds
     "features": [
         {
@@ -70,16 +89,16 @@ The library supports two output formats:
             "spectral_flatness": float,
             "spectral_rolloff": float,
             "zero_crossing_rate": float,
-            "mfcc": [float],
+            "mfcc": [float],  # 13 coefficients
             "frequency_bands": {
-                "sub_bass": float,
-                "bass": float,
-                "low_mid": float,
-                "mid": float,
-                "upper_mid": float,
-                "treble": float
+                "sub_bass": float,    # 20-60 Hz
+                "bass": float,        # 60-250 Hz
+                "low_mid": float,     # 250-500 Hz
+                "mid": float,         # 500-2000 Hz
+                "upper_mid": float,   # 2000-5000 Hz
+                "treble": float       # 5000-20000 Hz
             },
-            "chroma": [float],
+            "chroma": [float]  # 12 values representing pitch classes
         }
     ]
 }
