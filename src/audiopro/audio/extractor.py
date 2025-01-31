@@ -19,25 +19,16 @@ import essentia.standard as es
 from audiopro.utils import (
     compute_spectral_bandwidth,
     optimized_convert_to_native_types,
+    FRAME_LENGTH,
+    HOP_LENGTH,
+    BATCH_SIZE,
+    FREQUENCY_BANDS,
 )
 
 from audiopro.utils.logger import get_logger
 
 # Set up logging
 logger = get_logger()
-
-# Constants for audio processing
-FRAME_LENGTH = 2048
-HOP_LENGTH = 512
-BATCH_SIZE = 1000  # Process frames in batches
-FREQUENCY_BANDS = {
-    "sub_bass": (20, 60),
-    "bass": (60, 250),
-    "low_mid": (250, 500),
-    "mid": (500, 2000),
-    "upper_mid": (2000, 5000),
-    "treble": (5000, 20000),
-}
 
 
 # Calculate max workers dynamically based on workload
