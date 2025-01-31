@@ -17,9 +17,9 @@ disable=
     line-too-long,             # Handled by black/formatter
     invalid-name,              # Allow single-letter variables in small scopes
     unnecessary-pass,          # Sometimes useful in placeholders
-    fixme,                      # Allow TODOs
-    seless-elif,                # Allow `elif` in `else` block
-    no-else-return,             # Allow `else` block in `return` statement
+    fixme,                     # Allow TODOs
+    useless-elif,              # Allow `elif` in `else` block
+    no-else-return,            # Allow `else` block in `return` statement
 
 [FORMAT]
 # Maximum allowed line length (handled by Black, so relaxed here)
@@ -44,7 +44,7 @@ score=no
 
 [LOGGING]
 # Enforce lazy formatting in logging (`logger.info("Message: %s", value)`)
-logging-format-style=old
+logging-format-style=new  # Use "old" if on Python <3.8
 
 [SIMILARITIES]
 # Ignore similarities in code (prevents unnecessary warnings for repeated code structures)
