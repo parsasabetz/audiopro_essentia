@@ -89,7 +89,7 @@ async def analyze_audio(
                 monitoring_thread = threading.Thread(
                     target=monitor_cpu_usage,
                     args=(cpu_usage_list, active_cores_list, stop_flag),
-                    daemon=True  # Make thread daemon so it exits with main thread
+                    daemon=True,  # Make thread daemon so it exits with main thread
                 )
                 monitoring_thread.start()
 
@@ -151,11 +151,13 @@ async def analyze_audio(
             if monitoring_thread:
                 stop_flag.set()
                 monitoring_thread.join(timeout=2)  # Wait max 2 seconds
-                
+
             await write_output(analysis, final_output, output_format)
-            
+
             end_time = time.time()
-            print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_list)
+            print_performance_stats(
+                start_time, end_time, cpu_usage_list, active_cores_list
+            )
 
         except Exception as e:
             logger.error("Analysis failed: %s", str(e))
