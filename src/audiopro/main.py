@@ -121,17 +121,16 @@ async def analyze_audio(
             logger.warning("No beats detected in the audio. Skipping beat tracking.")
             tempo = 0.0
 
-        logger.info("Compiling analysis results...")
-        analysis: AudioAnalysis = {
-            "metadata": metadata,
-            "tempo": tempo,
-            "beats": beat_times,
-            "features": features,
-        }
-
-        # Convert all numpy types to native Python types before serialization
-        logger.info("Converting data types for output...")
-        analysis = optimized_convert_to_native_types(analysis)
+        # Compile analysis results, and convert to native types
+        logger.info("Compiling analysis results & convert to native types...")
+        analysis: AudioAnalysis = optimized_convert_to_native_types(
+            {
+                "metadata": metadata,
+                "tempo": tempo,
+                "beats": beat_times,
+                "features": features,
+            }
+        )
 
         logger.info(f"Writing output to {final_output}...")
         await write_output(analysis, final_output, output_format)
