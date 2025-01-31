@@ -8,18 +8,18 @@ ignore=migrations,tests
 [MESSAGES CONTROL]
 # Disable specific warnings/errors that are unnecessary or too noisy
 disable=
-    missing-module-docstring,  # Don't require docstrings for every module
-    missing-class-docstring,   # Don't require docstrings for every class
-    missing-function-docstring,  # Don't require docstrings for every function
-    too-few-public-methods,    # Ignore for small utility classes
-    no-member,                 # Prevent false positives in C extensions (e.g., orjson)
-    import-error,              # Prevent false positives for complex imports
-    line-too-long,             # Handled by black/formatter
-    invalid-name,              # Allow single-letter variables in small scopes
-    unnecessary-pass,          # Sometimes useful in placeholders
-    fixme,                     # Allow TODOs
-    useless-else-return,       # Allow else block after return
-    no-else-return,            # Allow `else` block in `return` statement
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    no-member,
+    import-error,
+    line-too-long,
+    invalid-name,
+    unnecessary-pass,
+    fixme,
+    no-else-return,
+    logging-too-many-args
 
 [FORMAT]
 # Maximum allowed line length (handled by Black, so relaxed here)
@@ -56,4 +56,4 @@ ignored-argument-names=_.*
 
 [EXCEPTIONS]
 # Allow "broad except" only for base exceptions (useful for logging generic errors)
-overgeneral-exceptions=Exception
+overgeneral-exceptions=builtins.Exception
