@@ -1,5 +1,4 @@
 import essentia.standard as es
-import warnings
 import numpy as np
 
 
