@@ -3,6 +3,9 @@ Module for audio feature extraction.
 Features are extracted per frame with multiprocessing, preserving output order.
 """
 
+# Typing imports
+from typing import Dict, List, Optional, Tuple
+
 # Standard library imports
 import logging
 from functools import partial
@@ -12,11 +15,8 @@ import multiprocessing as mp
 import numpy as np
 import essentia.standard as es
 
-# Typing imports
-from typing import Dict, List, Optional, Tuple
-
 # Local util imports
-from ..utils import (
+from audiopro.utils import (
     compute_spectral_bandwidth,
     optimized_convert_to_native_types,
 )
