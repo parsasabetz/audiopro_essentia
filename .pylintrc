@@ -18,6 +18,8 @@ disable=
     invalid-name,              # Allow single-letter variables in small scopes
     unnecessary-pass,          # Sometimes useful in placeholders
     fixme                      # Allow TODOs
+    seless-elif                # Allow `elif` in `else` block
+    no-else-return             # Allow `else` block in `return` statement
 
 [FORMAT]
 # Maximum allowed line length (handled by Black, so relaxed here)
