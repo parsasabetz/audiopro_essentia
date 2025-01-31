@@ -34,8 +34,11 @@ def monitor_cpu_usage(
     cpu_count = psutil.cpu_count()
     while not stop_flag.is_set():
         try:
-            # Single call with per-core usage
-            per_cpu_percent = psutil.cpu_percent(interval=1, percpu=True)
+            # Set a timeout for the cpu_percent call
+            per_cpu_percent = psutil.cpu_percent(interval=0.5, percpu=True)
+            if stop_flag.is_set():  # Check again after the blocking call
+                break
+
             cpu_percent = sum(per_cpu_percent) / cpu_count
             active_cores = np.sum(np.array(per_cpu_percent) > 1)
 
@@ -49,6 +52,9 @@ def monitor_cpu_usage(
                 active_cores_list.pop(0)
         except (psutil.Error, ValueError) as e:
             logger.error("Error monitoring CPU usage: %s", str(e))
+            break  # Exit on error
+
+    logger.info("Monitoring thread stopped")
 
 
 def print_performance_stats(
