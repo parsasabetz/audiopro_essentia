@@ -7,6 +7,8 @@ Enhanced docstrings and inline comments for clarity.
 import os
 import logging
 import threading
+
+# typing importa
 from typing import List
 
 # Third-party imports
@@ -48,8 +50,8 @@ def monitor_cpu_usage(
             active_cores_list.append(active_cores)
             if len(active_cores_list) > max_samples:
                 active_cores_list.pop(0)
-        except Exception as e:
-            logger.error(f"Error monitoring CPU usage: {str(e)}")
+        except (psutil.Error, ValueError) as e:
+            logger.error("Error monitoring CPU usage: %s", str(e))
 
 
 def print_performance_stats(
@@ -77,7 +79,7 @@ def print_performance_stats(
         - If monitoring was skipped (empty lists), only execution time is shown
     """
     execution_time = end_time - start_time
-    
+
     if not cpu_usage_list or not active_cores_list:
         print("\n" + "=" * 50)
         print("EXECUTION SUMMARY")
