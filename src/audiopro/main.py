@@ -48,7 +48,7 @@ async def analyze_audio(
 
     Args:
         file_path: Path to input audio file
-        output_file: Path for output file (without extension)
+        output_path: Path for output file (without extension)
         output_format: Format of the output file ('msgpack' by default or 'json' if specified)
         skip_monitoring: Flag to skip performance monitoring
     """
