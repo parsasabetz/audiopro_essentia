@@ -1,0 +1,57 @@
+[MASTER]
+# Allow loading config from a .pylintrc file
+load-plugins=pylint.extensions.docparams
+
+# Ignore specific file patterns (e.g., migrations, generated files)
+ignore=migrations,tests
+
+[MESSAGES CONTROL]
+# Disable specific warnings/errors that are unnecessary or too noisy
+disable=
+    missing-module-docstring,  # Don't require docstrings for every module
+    missing-class-docstring,   # Don't require docstrings for every class
+    missing-function-docstring,  # Don't require docstrings for every function
+    too-few-public-methods,    # Ignore for small utility classes
+    no-member,                 # Prevent false positives in C extensions (e.g., orjson)
+    import-error,              # Prevent false positives for complex imports
+    line-too-long,             # Handled by black/formatter
+    invalid-name,              # Allow single-letter variables in small scopes
+    unnecessary-pass,          # Sometimes useful in placeholders
+    fixme                      # Allow TODOs
+
+[FORMAT]
+# Maximum allowed line length (handled by Black, so relaxed here)
+max-line-length=100
+
+[TYPECHECK]
+# Ignore checking of missing type hints for 3rd party libraries
+ignored-modules=numpy,orjson,cv2
+
+[DESIGN]
+# Adjust complexity settings (default is too strict)
+max-attributes=10
+max-args=6
+max-locals=25
+max-branches=15
+max-statements=60
+max-public-methods=20
+
+[REPORTS]
+# Disable pylint's scoring system (optional)
+score=no
+
+[LOGGING]
+# Enforce lazy formatting in logging (`logger.info("Message: %s", value)`)
+logging-format-style=old
+
+[SIMILARITIES]
+# Ignore similarities in code (prevents unnecessary warnings for repeated code structures)
+min-similarity-lines=10
+
+[VARIABLES]
+# Allow underscore variables as unused placeholders (e.g., `_`)
+ignored-argument-names=_.*
+
+[EXCEPTIONS]
+# Allow "broad except" only for base exceptions (useful for logging generic errors)
+overgeneral-exceptions=Exception
