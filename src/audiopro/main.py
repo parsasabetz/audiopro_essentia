@@ -11,9 +11,6 @@ from typing import List
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
-# Third-party imports
-import warnings
-
 # Local imports
 # CLI parsing
 from .arg_parser import parse_arguments
