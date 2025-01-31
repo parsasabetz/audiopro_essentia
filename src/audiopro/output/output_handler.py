@@ -1,6 +1,4 @@
 # Standard library imports
-import logging
-
 # Third-party imports
 import aiofiles
 import msgpack
@@ -8,9 +6,10 @@ import orjson
 
 # Local imports
 from .types import AudioAnalysis
+from ..utils.logger import get_logger
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def write_output(analysis: AudioAnalysis, final_output: str, output_format: str):

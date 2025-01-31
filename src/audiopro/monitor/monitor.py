@@ -1,22 +1,19 @@
-"""
-Module for system performance monitoring.
-Enhanced docstrings and inline comments for clarity.
-"""
+"""Module for system performance monitoring."""
 
 # Standard library imports
 import os
-import logging
 import threading
-
-# typing importa
 from typing import List
 
 # Third-party imports
 import numpy as np
 import psutil
 
+# Local imports
+from audiopro.utils.logger import get_logger
+
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def monitor_cpu_usage(

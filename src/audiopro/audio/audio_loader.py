@@ -1,12 +1,12 @@
-# Standard library imports
-import logging
-
 # Third-party imports
 import essentia.standard as es
 import numpy as np
 
+# Local imports
+from audiopro.utils.logger import get_logger
+
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def load_and_preprocess_audio(file_path: str):

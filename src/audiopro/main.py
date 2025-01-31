@@ -20,7 +20,8 @@ from .audio.extractor import extract_features
 from .audio.metadata import get_file_metadata
 
 # Analysis utilities
-from .utils import optimized_convert_to_native_types, extract_rhythm, get_logger
+from .utils import optimized_convert_to_native_types, extract_rhythm
+from .utils.logger import get_logger
 
 # Performance monitoring
 from .monitor.monitor import monitor_cpu_usage, print_performance_stats
