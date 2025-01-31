@@ -9,6 +9,8 @@ import time
 from typing import List
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
+import signal
+from contextlib import contextmanager
 
 # Local imports
 # CLI parsing
@@ -31,6 +33,26 @@ from .output.output_handler import write_output
 from .output.types import AudioAnalysis
 
 logger = get_logger(__name__)
+
+
+@contextmanager
+def graceful_shutdown():
+    """Context manager for graceful shutdown."""
+    original_handlers = {}
+    stop_flag = threading.Event()
+
+    def handler(_signum, _frame):
+        logger.info("Received shutdown signal, cleaning up...")
+        stop_flag.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        original_handlers[sig] = signal.signal(sig, handler)
+
+    try:
+        yield stop_flag
+    finally:
+        for sig, original_handler in original_handlers.items():
+            signal.signal(sig, original_handler)
 
 
 async def analyze_audio(
@@ -60,99 +82,90 @@ async def analyze_audio(
     cpu_usage_list: List[float] = []
     active_cores_list: List[int] = []
 
-    if not skip_monitoring:
-        stop_flag = threading.Event()
-        monitoring_thread = threading.Thread(
-            target=monitor_cpu_usage,
-            args=(
-                cpu_usage_list,
-                active_cores_list,
-                stop_flag,
-            ),
-        )
-        monitoring_thread.start()
-    else:
-        stop_flag = None
+    with graceful_shutdown() as stop_flag:
         monitoring_thread = None
+        try:
+            if not skip_monitoring:
+                monitoring_thread = threading.Thread(
+                    target=monitor_cpu_usage,
+                    args=(cpu_usage_list, active_cores_list, stop_flag),
+                    daemon=True  # Make thread daemon so it exits with main thread
+                )
+                monitoring_thread.start()
 
-    try:
-        logger.info("Starting audio analysis pipeline...")
-        logger.info("Loading audio file: %s", file_path)
-        audio_data, sample_rate = load_and_preprocess_audio(file_path)
-        logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
+            logger.info("Starting audio analysis pipeline...")
+            logger.info("Loading audio file: %s", file_path)
+            audio_data, sample_rate = load_and_preprocess_audio(file_path)
+            logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
 
-        with ThreadPoolExecutor() as executor:
-            logger.info("Submitting parallel processing tasks...")
+            with ThreadPoolExecutor() as executor:
+                logger.info("Submitting parallel processing tasks...")
 
-            # Submit tasks with logging
-            logger.info("Extracting metadata...")
-            metadata_future = executor.submit(
-                get_file_metadata, file_path, audio_data, sample_rate
+                # Submit tasks with logging
+                logger.info("Extracting metadata...")
+                metadata_future = executor.submit(
+                    get_file_metadata, file_path, audio_data, sample_rate
+                )
+
+                logger.info("Extracting audio features...")
+                features_future = executor.submit(
+                    extract_features, audio_data, sample_rate
+                )
+
+                logger.info("Analyzing rhythm patterns...")
+                rhythm_future = executor.submit(extract_rhythm, audio_data)
+
+                # Get results with logging
+                logger.info("Waiting for task completion...")
+                metadata = metadata_future.result()
+                logger.info("Metadata extraction completed")
+
+                features = features_future.result()
+                logger.info("Feature extraction completed")
+
+                tempo, beat_positions = rhythm_future.result()
+                logger.info("Rhythm analysis completed")
+
+                beat_times = beat_positions.tolist()
+                logger.info("Found %d beats, tempo: %.2f BPM", len(beat_times), tempo)
+
+            # Check if beats are detected to avoid empty frequency sets
+            if not beat_times:
+                logger.warning(
+                    "No beats detected in the audio. Skipping beat tracking."
+                )
+                tempo = 0.0
+
+            # Compile analysis results
+            logger.info("Compiling analysis results...")
+            analysis: AudioAnalysis = optimized_convert_to_native_types(
+                {
+                    "metadata": metadata,
+                    "tempo": tempo,
+                    "beats": beat_times,
+                    "features": features,
+                }
             )
 
-            logger.info("Extracting audio features...")
-            features_future = executor.submit(extract_features, audio_data, sample_rate)
-
-            logger.info("Analyzing rhythm patterns...")
-            rhythm_future = executor.submit(extract_rhythm, audio_data)
-
-            # Get results with logging
-            logger.info("Waiting for task completion...")
-            metadata = metadata_future.result()
-            logger.info("Metadata extraction completed")
-
-            features = features_future.result()
-            logger.info("Feature extraction completed")
-
-            tempo, beat_positions = rhythm_future.result()
-            logger.info("Rhythm analysis completed")
-
-            beat_times = beat_positions.tolist()
-            logger.info("Found %d beats, tempo: %.2f BPM", len(beat_times), tempo)
-
-        # Check if beats are detected to avoid empty frequency sets
-        if not beat_times:
-            logger.warning("No beats detected in the audio. Skipping beat tracking.")
-            tempo = 0.0
-
-        # Compile analysis results
-        logger.info("Compiling analysis results...")
-        analysis: AudioAnalysis = optimized_convert_to_native_types(
-            {
-                "metadata": metadata,
-                "tempo": tempo,
-                "beats": beat_times,
-                "features": features,
-            }
-        )
-
-        # Write output without redundant logging
-        await write_output(analysis, final_output, output_format)
-
-        # Stop CPU monitoring
-        if stop_flag and monitoring_thread:
-            stop_flag.set()
-            monitoring_thread.join()
-
-        end_time = time.time()
-        print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_list)
-
-    except ValueError as ve:
-        logger.error("ValueError: %s", ve)
-        raise
-    except Exception as e:
-        logger.error("Analysis failed: %s", str(e))
-        if stop_flag and monitoring_thread:
-            stop_flag.set()
-            stop_flag.join()
-        raise
-
-    finally:
-        logger.info("Cleaning up resources...")
-        if stop_flag and not stop_flag.is_set():
-            stop_flag.set()
+            # Stop monitoring before writing output
             if monitoring_thread:
-                monitoring_thread.join()
+                stop_flag.set()
+                monitoring_thread.join(timeout=2)  # Wait max 2 seconds
+                
+            await write_output(analysis, final_output, output_format)
+            
+            end_time = time.time()
+            print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_list)
+
+        except Exception as e:
+            logger.error("Analysis failed: %s", str(e))
+            raise
+        finally:
+            # Ensure monitoring thread is stopped
+            if stop_flag and not stop_flag.is_set():
+                stop_flag.set()
+            if monitoring_thread and monitoring_thread.is_alive():
+                monitoring_thread.join(timeout=1)
 
 
 if __name__ == "__main__":
