@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 async def analyze_audio(
     file_path: str,
-    output_file: str,
+    output_path: str,
     output_format: str = "msgpack",
     skip_monitoring: bool = False,
 ) -> None:
