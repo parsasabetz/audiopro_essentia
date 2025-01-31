@@ -18,7 +18,7 @@ disable=
     invalid-name,              # Allow single-letter variables in small scopes
     unnecessary-pass,          # Sometimes useful in placeholders
     fixme,                     # Allow TODOs
-    useless-elif,              # Allow `elif` in `else` block
+    useless-else-return,       # Allow else block after return
     no-else-return,            # Allow `else` block in `return` statement
 
 [FORMAT]
