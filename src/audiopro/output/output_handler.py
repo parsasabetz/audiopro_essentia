@@ -26,6 +26,7 @@ async def write_output(analysis: AudioAnalysis, final_output: str, output_format
         orjson.JSONEncodeError: If JSON encoding fails
         msgpack.exceptions.PackException: If MessagePack encoding fails
         ValueError: If the output_format is not 'json' or 'msgpack'
+        Exception: For any other exceptions that occur during file operations
 
     Note:
         The function uses orjson for JSON encoding and msgpack for MessagePack format.
@@ -39,22 +40,23 @@ async def write_output(analysis: AudioAnalysis, final_output: str, output_format
     logger.info("Output file will be: %s", final_output)
     logger.info("Writing output to %s...", final_output)
 
-    # Use asynchronous file writing with proper error handling
     try:
         if output_format == "json":
-            async with aiofiles.open(final_output, "w") as f:
-                await f.write(orjson.dumps(analysis).decode())
+            # Convert to JSON with orjson's default handler for numpy types
+            json_bytes = orjson.dumps(
+                analysis,
+                option=orjson.OPT_SERIALIZE_NUMPY,
+                default=lambda x: float(x) if hasattr(x, "dtype") else x,
+            )
+            async with aiofiles.open(final_output, "wb") as f:
+                await f.write(json_bytes)
         else:
-            # Serialize the analysis dictionary to MessagePack bytes
-            packed_data = msgpack.packb(analysis)
+            # Use buffer for large MessagePack data
+            packed_data = msgpack.packb(analysis, use_bin_type=True)
             async with aiofiles.open(final_output, "wb") as f:
                 await f.write(packed_data)
 
         logger.info("Output written successfully")
-    except (
-        aiofiles.errors.FileError,
-        orjson.JSONEncodeError,
-        msgpack.exceptions.PackException,
-    ) as e:
+    except Exception as e:  # Use general exception handling
         logger.error("Failed to write output: %s", str(e))
         raise
