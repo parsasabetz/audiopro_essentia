@@ -58,9 +58,9 @@ async def analyze_audio(
         raise ValueError("output_format must be either 'json' or 'msgpack'")
 
     # Single extension handling
-    final_output = f"{os.path.splitext(output_file)[0]}.{output_format}"
-    logger.info(f"Output format: {output_format}")
-    logger.info(f"Output file will be: {final_output}")
+    final_output = f"{os.path.splitext(output_path)[0]}.{output_format}"
+    logger.info("Output format: %s", output_format)
+    logger.info("Output file will be: %s", final_output)
 
     start_time = time.time()
     cpu_usage_list: List[float] = []
@@ -83,9 +83,9 @@ async def analyze_audio(
 
     try:
         logger.info("Starting audio analysis pipeline...")
-        logger.info(f"Loading audio file: {file_path}")
+        logger.info("Loading audio file: %s", file_path)
         audio_data, sample_rate = load_and_preprocess_audio(file_path)
-        logger.info(f"Audio loaded successfully. Sample rate: {sample_rate}Hz")
+        logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
 
         with ThreadPoolExecutor() as executor:
             logger.info("Submitting parallel processing tasks...")
@@ -114,7 +114,7 @@ async def analyze_audio(
             logger.info("Rhythm analysis completed")
 
             beat_times = beat_positions.tolist()
-            logger.info(f"Found {len(beat_times)} beats, tempo: {tempo:.2f} BPM")
+            logger.info("Found %d beats, tempo: %.2f BPM", len(beat_times), tempo)
 
         # Check if beats are detected to avoid empty frequency sets
         if not beat_times:
@@ -132,7 +132,7 @@ async def analyze_audio(
             }
         )
 
-        logger.info(f"Writing output to {final_output}...")
+        logger.info("Writing output to %s...", final_output)
         await write_output(analysis, final_output, output_format)
         logger.info("Output written successfully")
 
@@ -145,10 +145,10 @@ async def analyze_audio(
         print_performance_stats(start_time, end_time, cpu_usage_list, active_cores_list)
 
     except ValueError as ve:
-        logger.error(f"ValueError: {ve}")
+        logger.error("ValueError: %s", ve)
         raise
     except Exception as e:
-        logger.error(f"Analysis failed: {str(e)}")
+        logger.error("Analysis failed: %s", str(e))
         if stop_flag and monitoring_thread:
             stop_flag.set()
             monitoring_thread.join()
