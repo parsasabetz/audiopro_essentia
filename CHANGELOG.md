@@ -1,3 +1,38 @@
+## 0.7.0 (2025-02-01)
+
+### BREAKING CHANGE
+
+- Frame indexing logic has been modified to ensure complete audio coverage
+
+### Feat
+
+- **extractor**: update audio module documentation and reorganize imports for clarity, remove unused feature utilities, optimize memory usage and error handling
+- **extractor**: add `FrameFeatures` data class and implement frame processing for spectral feature extraction with error handling, separate audio processing code into modular structure
+- **extractor**: implement memory-efficient frame generator and enhance feature extraction with error handling and progress tracking
+- **extractor**: refactor frame processing to use type-safe container for features and optimize frequency bin calculations
+- **extractor**: add `on_feature` callback to `extract_features` for immediate feature dispatch, this is to optimize memory usage, improve performance, and ensure system robustness during audio analysis
+- **extractor**: optimize frame processing with improved memory usage and progress tracking
+- **extractor**: enhance frame extraction with precise calculations and progress tracking, this fixes issues with frame processing
+- **audio**: update time calculation in `process_frame` to return correct value milliseconds
+- **performance**: enhance execution time logging with milliseconds
+- **audiopro/analysis**: add analysis module with audio analysis export
+- **audiopro/audio**: add audio module with feature extraction utilities and exports
+- **utils/process**: add `calculate_max_workers` function and update exports in init file
+- **audiopro/analysis/controller**: implement audio analysis function with monitoring and output handling
+- **utils**: implement graceful shutdown context manager for process termination
+- **monitor**: add dynamic loading of monitor functions for performance tracking
+
+### Fix
+
+- **__init__**: add missing newline at end of file
+
+### Refactor
+
+- **audiopro/audio/extractor**: streamline feature extraction process and improve batch processing efficiency
+- **audiopro/main**: simplify main script by consolidating audio analysis logic and improving documentation
+- **main**: remove unused imports and streamline monitoring function loading
+- **audiopro/main**: dynamically load monitoring functions to optimize performance monitoring
+
 ## 0.6.0 (2025-01-31)
 
 ### Feat
