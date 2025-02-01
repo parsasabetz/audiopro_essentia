@@ -13,8 +13,8 @@ AVAILABLE_FEATURES: FrozenSet[str] = frozenset(
         "spectral_flatness",
         "spectral_rolloff",
         "zero_crossing_rate",
-        "mfcc",
         "frequency_bands",
+        "mfcc",
         "chroma",
     }
 )
@@ -33,8 +33,8 @@ class FeatureConfig(TypedDict, total=False):
         - spectral_flatness: Measure of how noise-like the signal is
         - spectral_rolloff: Frequency below which most spectral energy exists
         - zero_crossing_rate: Rate of signal polarity changes
-        - mfcc: Mel-frequency cepstral coefficients (13 values)
         - frequency_bands: Energy in different frequency bands
+        - mfcc: Mel-frequency cepstral coefficients (13 values)
         - chroma: Distribution of spectral energy across pitch classes
     """
 
@@ -44,14 +44,12 @@ class FeatureConfig(TypedDict, total=False):
     spectral_flatness: bool
     spectral_rolloff: bool
     zero_crossing_rate: bool
-    mfcc: bool
     frequency_bands: bool
+    mfcc: bool
     chroma: bool
 
 
-def create_feature_config(
-    selected_features: Optional[List[str]] = None,
-) -> Optional[FeatureConfig]:
+def create_feature_config(selected_features: Optional[List[str]] = None) -> Optional[FeatureConfig]:
     """
     Create a feature configuration dictionary based on selected features.
     Note: selected_features are assumed to be pre-validated by argparse.
@@ -65,10 +63,17 @@ def create_feature_config(
                                None if no features were selected (compute all).
     """
     if selected_features is None:
-        return None
+        # When no features are specified, enable all features
+        return {feature: True for feature in AVAILABLE_FEATURES}
 
-    # Create config using dict comprehension (pre-validated features)
-    return {feature: feature in selected_features for feature in AVAILABLE_FEATURES}
+    # Create config with all features explicitly set to False by default
+    config = {feature: False for feature in AVAILABLE_FEATURES}
+    
+    # Enable only the selected features
+    for feature in selected_features:
+        config[feature] = True
+
+    return config
 
 
 class QualityMetrics(TypedDict):
@@ -136,8 +141,8 @@ class AudioFeature(TypedDict, total=False):
     spectral_flatness: Optional[float]
     spectral_rolloff: Optional[float]
     zero_crossing_rate: Optional[float]
-    mfcc: Optional[List[float]]  # 13 coefficients
     frequency_bands: Optional[FrequencyBands]
+    mfcc: Optional[List[float]]  # 13 coefficients
     chroma: Optional[List[float]]  # 12 values
 
 
