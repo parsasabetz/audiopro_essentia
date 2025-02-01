@@ -1,5 +1,9 @@
+"""
+Audio analysis controller module.
+"""
+
 # typing imports
-from typing import Optional, List
+from typing import Optional
 
 # Standard library imports
 import os
@@ -15,7 +19,7 @@ from audiopro.audio.metadata import get_file_metadata
 
 # Output handling imports
 from audiopro.output.output_handler import write_output
-from audiopro.output.types import AudioAnalysis
+from audiopro.output.types import AudioAnalysis, FeatureConfig
 
 # Utility imports
 from audiopro.utils import optimized_convert_to_native_types, extract_rhythm
@@ -34,35 +38,35 @@ async def analyze_audio(
     output_path: str,
     output_format: str = "msgpack",
     skip_monitoring: bool = False,
+    feature_config: Optional[FeatureConfig] = None,
 ) -> None:
     """
-    Analyzes an audio file and writes the analysis results to an output file.
+    Analyze an audio file and extract features.
 
-    Parameters:
-        `file_path` (str): Path to the input audio file.
-        `output_path` (str): Path to the output file where results will be saved.
-        `output_format` (str, optional): Format of the output file, either `json` or `msgpack`. Defaults to `msgpack`.
-        `skip_monitoring` (bool, optional): If True, skips CPU usage monitoring. Defaults to False.
+    Args:
+        file_path: Path to the audio file to analyze
+        output_path: Path where to save the analysis results (without extension)
+        output_format: Format to save the results in ('msgpack' or 'json')
+        skip_monitoring: Whether to skip performance monitoring
+        feature_config: Optional configuration specifying which features to compute.
+                      If None, all features will be computed.
 
     Raises:
-        ValueError: If the output_format is not `json` or `msgpack`.
-        Exception: If any error occurs during the analysis process.
+        FileNotFoundError: If the input file doesn't exist
+        ValueError: If the audio file is invalid or too short
+        RuntimeError: If the analysis fails critically
+        Exception: If any other unexpected error occurs
     """
-
-    # Single input validation block
-    output_format = output_format.lower().strip()
-    if output_format not in ["json", "msgpack"]:
-        raise ValueError("output_format must be either 'json' or 'msgpack'")
-
-    # Single extension handling (without logging)
-    final_output = f"{os.path.splitext(output_path)[0]}.{output_format}"
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Audio file not found: {file_path}")
 
     start_time = time.time()
 
-    cpu_usage_list: List[float] = []
-    active_cores_list: List[int] = []
+    # Initialize monitoring lists if monitoring is enabled
+    cpu_usage_list = []
+    active_cores_list = []
+    monitoring_thread = None
 
-    monitoring_thread: Optional[threading.Thread] = None
     monitor_cpu_usage = None
     print_performance_stats = None
 
@@ -99,7 +103,11 @@ async def analyze_audio(
 
                 logger.info("Extracting audio features...")
                 features_future = executor.submit(
-                    extract_features, audio_data, sample_rate, on_feature
+                    extract_features,
+                    audio_data,
+                    sample_rate,
+                    on_feature,
+                    feature_config,
                 )
 
                 logger.info("Analyzing rhythm patterns...")
@@ -142,7 +150,7 @@ async def analyze_audio(
                 stop_flag.set()
                 monitoring_thread.join(timeout=2)  # Wait max 2 seconds
 
-            await write_output(analysis, final_output, output_format)
+            await write_output(analysis, output_path, output_format)
 
             end_time = time.time()
             if not skip_monitoring and print_performance_stats:
