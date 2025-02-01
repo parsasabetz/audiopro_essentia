@@ -70,6 +70,11 @@ async def analyze_audio(
         # Only import monitoring functions if monitoring is enabled
         monitor_cpu_usage, print_performance_stats = load_monitor_functions()
 
+    features = []
+
+    def on_feature(feature):
+        features.append(feature)
+
     with graceful_shutdown() as stop_flag:
         try:
             if not skip_monitoring and monitor_cpu_usage:
@@ -94,7 +99,7 @@ async def analyze_audio(
 
                 logger.info("Extracting audio features...")
                 features_future = executor.submit(
-                    extract_features, audio_data, sample_rate
+                    extract_features, audio_data, sample_rate, on_feature
                 )
 
                 logger.info("Analyzing rhythm patterns...")
@@ -105,7 +110,7 @@ async def analyze_audio(
                 metadata = metadata_future.result()
                 logger.info("Metadata extraction completed")
 
-                features = features_future.result()
+                features_future.result()  # Ensure all features are processed
                 logger.info("Feature extraction completed")
 
                 tempo, beat_positions = rhythm_future.result()

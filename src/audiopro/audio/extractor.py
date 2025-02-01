@@ -26,36 +26,32 @@ from .feature_utils import process_frame
 logger = get_logger()
 
 
-def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
+def extract_features(audio_data: np.ndarray, sample_rate: int, on_feature=None) -> list:
     """
-    Extracts features from the given audio data.
+    Extracts features from the given audio data by processing it in frames.
 
-    This function processes the audio data in frames and extracts features using
-    parallel processing for efficiency. It handles audio data that is long enough
-    for analysis and processes it in batches to optimize memory usage.
+    The audio data is divided into overlapping frames according to FRAME_LENGTH and HOP_LENGTH.
+    Each frame is preprocessed with a window function and transformed using FFT to extract spectral features.
+    Multiprocessing is used to distribute frame processing across multiple processes, ensuring a low CPU and memory footprint.
+    If an on_feature callback is provided, valid features are dispatched immediately via the callback,
+    avoiding the accumulation of large in-memory lists.
 
     Args:
-        audio_data (np.ndarray): The audio data as a NumPy array.
-        sample_rate (int): The sample rate of the audio data.
+        audio_data (np.ndarray): The audio data as a numpy array.
+        sample_rate (int): The sample rate of the audio.
+        on_feature (callable, optional): A function to receive each extracted feature immediately.
+            When provided, the function returns an empty list, and the caller is responsible for handling features.
 
     Returns:
-        list: A list of extracted features.
+        list: A list of features in native Python types if no on_feature callback is provided; otherwise, an empty list.
 
     Raises:
-        ValueError: If the audio data is too short for analysis or if no valid
-                    features could be extracted.
+        ValueError: If the audio data is too short for analysis or if no valid features can be extracted.
 
     Notes:
-        - The function uses a frame generator to process the audio data in frames.
-        - It precomputes common arrays like the window function and frequency array
-          for efficiency.
-        - The maximum number of workers for parallel processing is calculated based
-          on the audio data length.
-        - The audio data is processed in batches, and each batch is processed in
-          parallel using a multiprocessing pool.
-        - If an error occurs during batch processing, it logs the error and continues
-          with the next batch.
-        - The function returns a list of valid features extracted from the audio data.
+        - Uses a streaming frame generator and batches processing to minimize memory usage.
+        - Precomputes and reuses window and frequency arrays for efficiency.
+        - Logs progress and warns if processed frames fall below an acceptable completion ratio.
     """
 
     if len(audio_data) < FRAME_LENGTH:
@@ -106,23 +102,30 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
                 # Use imap with a chunksize for improved memory usage
                 for _, feature in pool.imap(process_func, batch_frames, chunksize=100):
                     if feature is not None:
-                        valid_features.append(feature)
-                    processed_frames += 1
+                        processed_frames += 1
+                        if on_feature is not None:
+                            # Immediately dispatch the feature instead of storing
+                            on_feature(feature)
+                        else:
+                            valid_features.append(feature)
+                    else:
+                        processed_frames += 1
             except (mp.TimeoutError, mp.ProcessError) as e:
                 logger.error("Error processing a batch: %s", str(e))
                 continue
 
             logger.info("Processed %d/%d frames", processed_frames, total_frames)
 
-    # Validate processing completion
-    if not valid_features:
+    if on_feature is None and not valid_features:
         raise ValueError("No valid features could be extracted")
 
     completion_ratio = processed_frames / total_frames
-    if completion_ratio < 0.95:  # Allow for up to 5% frame loss
+    if completion_ratio < 0.97:  # Allow for up to 3% frame loss
         logger.warning(
             "Only processed %.1f%% of expected frames", completion_ratio * 100
         )
 
     logger.info("Successfully processed %d frames", processed_frames)
+    if on_feature is not None:
+        return []
     return optimized_convert_to_native_types(valid_features)
