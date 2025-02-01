@@ -45,9 +45,6 @@ def compute_frequency_bands(
     return result
 
 
-
-
-
 def process_frame(
     frame_data: Tuple[int, np.ndarray],
     sample_rate: int,
@@ -122,7 +119,7 @@ def process_frame(
         freq_bands = compute_frequency_bands(spec, sample_rate, frame_length)
 
         return frame_index, {
-            "time": frame_index * HOP_LENGTH / sample_rate,
+            "time": (frame_index * HOP_LENGTH) / sample_rate * 1000,  # Now correctly represents time in milliseconds
             "rms": float(np.sqrt(np.mean(frame**2))),
             "spectral_centroid": centroid,
             "spectral_bandwidth": spectral_bandwidth,
