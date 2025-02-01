@@ -117,6 +117,16 @@ def extract_features(
     window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
     freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
 
+    # Create the process function once (constant across batches)
+    process_func = partial(
+        process_frame,
+        sample_rate=sample_rate,
+        frame_length=FRAME_LENGTH,
+        window_func=window_func,
+        freq_array=freq_array,
+        feature_config=feature_config,
+    )
+
     # Optimal resource allocation
     MAX_WORKERS = min(
         calculate_max_workers(total_samples, FRAME_LENGTH, HOP_LENGTH), mp.cpu_count()
@@ -141,15 +151,6 @@ def extract_features(
             for batch_frames in iter(lambda: list(islice(frames_iter, BATCH_SIZE)), []):
                 if error_count > MAX_ERRORS:
                     raise RuntimeError(f"Too many processing errors: {error_count}")
-
-                process_func = partial(
-                    process_frame,
-                    sample_rate=sample_rate,
-                    frame_length=FRAME_LENGTH,
-                    window_func=window_func,
-                    freq_array=freq_array,
-                    feature_config=feature_config,
-                )
 
                 try:
                     # Use imap with optimized chunk size for improved memory usage
