@@ -87,18 +87,14 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
 
     # Optimal batch size calculation
     MAX_WORKERS = calculate_max_workers(total_samples, FRAME_LENGTH, HOP_LENGTH)
-    total_batches = (total_frames + BATCH_SIZE - 1) // BATCH_SIZE
-    valid_features = []
     processed_frames = 0
+    valid_features = []
 
-    # Process batches with progress tracking
+    # Process batches with a streaming generator using minimal memory footprint
     with mp.Pool(processes=MAX_WORKERS) as pool:
-        frames = frame_generator()
-        for batch_idx in range(total_batches):
-            batch_frames = list(islice(frames, BATCH_SIZE))
-            if not batch_frames:
-                break
-
+        frames_iter = frame_generator()
+        # Process batches until no frames remain
+        for batch_frames in iter(lambda: list(islice(frames_iter, BATCH_SIZE)), []):
             process_func = partial(
                 process_frame,
                 sample_rate=sample_rate,
@@ -106,21 +102,17 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
                 window_func=window_func,
                 freq_array=freq_array,
             )
-
             try:
-                batch_results = pool.map(process_func, batch_frames)
-                # Track valid results
-                for _, feature in sorted(batch_results, key=lambda x: x[0]):
+                # Use imap with a chunksize for improved memory usage
+                for _, feature in pool.imap(process_func, batch_frames, chunksize=100):
                     if feature is not None:
-                        processed_frames += 1
                         valid_features.append(feature)
+                    processed_frames += 1
             except (mp.TimeoutError, mp.ProcessError) as e:
-                logger.error(f"Error processing batch {batch_idx + 1}: {str(e)}")
+                logger.error("Error processing a batch: %s", str(e))
                 continue
 
-            logger.info(
-                f"Processed batch {batch_idx + 1}/{total_batches} ({processed_frames}/{total_frames} frames)"
-            )
+            logger.info("Processed %d/%d frames", processed_frames, total_frames)
 
     # Validate processing completion
     if not valid_features:
@@ -128,7 +120,9 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
 
     completion_ratio = processed_frames / total_frames
     if completion_ratio < 0.95:  # Allow for up to 5% frame loss
-        logger.warning(f"Only processed {completion_ratio:.1%} of expected frames")
+        logger.warning(
+            "Only processed %.1f%% of expected frames", completion_ratio * 100
+        )
 
-    logger.info(f"Successfully processed {processed_frames} frames")
+    logger.info("Successfully processed %d frames", processed_frames)
     return optimized_convert_to_native_types(valid_features)
