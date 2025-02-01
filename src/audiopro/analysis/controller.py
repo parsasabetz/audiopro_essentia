@@ -77,7 +77,8 @@ async def analyze_audio(
     features = []
 
     def on_feature(feature):
-        features.append(feature)
+        # Convert FrameFeatures to dict before appending
+        features.append(feature.to_dict())
 
     with graceful_shutdown() as stop_flag:
         try:
