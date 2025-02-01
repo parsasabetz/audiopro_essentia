@@ -5,7 +5,7 @@ from typing import Dict, Any
 
 # Local application imports
 from audiopro.output.types import FeatureConfig
-from audiopro.utils.path import SUPPORTED_FORMATS
+from audiopro.utils.path import SUPPORTED_FORMATS, OutputFormat
 
 
 def parse_arguments() -> Dict[str, Any]:
@@ -19,7 +19,7 @@ def parse_arguments() -> Dict[str, Any]:
         Dict[str, Any]: A dictionary containing:
             - input_file (str): Path to the input audio file to be analyzed
             - output_file (str): Name for the output file (without extension)
-            - format (str): Output format, either 'msgpack' (default) or 'json'
+            - format (OutputFormat): Output format, either 'msgpack' (default) or 'json'
             - skip_monitoring (bool): Flag to disable performance monitoring if True
             - feature_config (Optional[FeatureConfig]): Configuration for which features to compute
 
@@ -81,11 +81,11 @@ def parse_arguments() -> Dict[str, Any]:
 
     args = parser.parse_args()
 
-    # Convert args to dictionary
+    # Convert args to dictionary with proper typing
     result = {
         "input_file": args.input_file,
         "output_file": args.output_file,
-        "format": args.format,  # Already lowercase and validated
+        "format": args.format,  # Already lowercase and validated as OutputFormat
         "skip_monitoring": args.skip_monitoring,
     }
 
