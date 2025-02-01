@@ -4,8 +4,11 @@ import argparse
 from typing import Dict, Any
 
 # Local application imports
-from audiopro.output.types import FeatureConfig
-from audiopro.utils.path import SUPPORTED_FORMATS, OutputFormat
+from audiopro.output.types import (
+    AVAILABLE_FEATURES,
+    create_feature_config,
+)
+from audiopro.utils.path import SUPPORTED_FORMATS
 
 
 def parse_arguments() -> Dict[str, Any]:
@@ -57,25 +60,13 @@ def parse_arguments() -> Dict[str, Any]:
         help="Skip performance monitoring to reduce overhead",
     )
 
-    feature_set = [
-        "rms",
-        "spectral_centroid",
-        "spectral_bandwidth",
-        "spectral_flatness",
-        "spectral_rolloff",
-        "zero_crossing_rate",
-        "mfcc",
-        "frequency_bands",
-        "chroma",
-    ]
-
     # Feature selection arguments
     feature_group = parser.add_argument_group("Feature Selection")
     feature_group.add_argument(
         "--features",
         type=str,
         nargs="+",
-        choices=feature_set,
+        choices=sorted(AVAILABLE_FEATURES),
         help="Select specific features to compute. If not specified, all features will be computed.",
     )
 
@@ -87,17 +78,7 @@ def parse_arguments() -> Dict[str, Any]:
         "output_file": args.output_file,
         "format": args.format,  # Already lowercase and validated as OutputFormat
         "skip_monitoring": args.skip_monitoring,
+        "feature_config": create_feature_config(args.features),
     }
-
-    # Create feature config if features were specified
-    if args.features:
-        feature_config: FeatureConfig = {}
-        all_features = feature_set
-        # Set selected features to True, others to False
-        for feature in all_features:
-            feature_config[feature] = feature in args.features
-        result["feature_config"] = feature_config
-    else:
-        result["feature_config"] = None
 
     return result
