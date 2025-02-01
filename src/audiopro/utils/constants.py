@@ -10,11 +10,11 @@ Attributes:
         frequency limits in Hz.
 """
 
-FRAME_LENGTH = 2048
+FRAME_LENGTH = 2_048
 
 HOP_LENGTH = 512
 
-BATCH_SIZE = 1000 # Process frames in batches
+BATCH_SIZE = 1_000 # Process frames in batches
 
 FREQUENCY_BANDS = {
     "sub_bass": (20, 60),
