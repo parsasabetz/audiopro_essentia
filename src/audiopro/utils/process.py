@@ -44,3 +44,26 @@ def graceful_shutdown():
     finally:
         for sig, original_handler in original_handlers.items():
             signal.signal(sig, original_handler)
+
+
+def calculate_max_workers(
+    audio_data_length: int, frame_length: int, hop_length: int
+) -> int:
+    """
+    Calculate the maximum number of workers for processing audio data.
+
+    This function determines the number of workers based on the length of the audio data,
+    the frame length, and the hop length. The number of workers is constrained to be
+    between 1 and 32, inclusive.
+
+    Args:
+        audio_data_length (int): The total length of the audio data.
+        frame_length (int): The length of each frame.
+        hop_length (int): The hop length between frames.
+
+    Returns:
+        int: The calculated number of workers, constrained to a minimum of 1 and a maximum of 32.
+    """
+
+    num_frames = (audio_data_length - frame_length) // hop_length + 1
+    return min(32, max(1, num_frames // 1000))
