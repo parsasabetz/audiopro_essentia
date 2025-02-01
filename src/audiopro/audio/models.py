@@ -1,6 +1,6 @@
 # typing imports
-from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
+from typing import Dict, Optional
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -20,29 +20,39 @@ class FrameFeatures:
         chroma: Chroma vector of the frame
     """
 
+    # Only time is required, all other fields are optional and only included if computed
     time: float
-    rms: Optional[float] = None
-    spectral_centroid: Optional[float] = None
-    spectral_bandwidth: Optional[float] = None
-    spectral_flatness: Optional[float] = None
-    spectral_rolloff: Optional[float] = None
-    zero_crossing_rate: Optional[float] = None
-    mfcc: Optional[List[float]] = None
-    frequency_bands: Optional[Dict[str, float]] = None
-    chroma: Optional[List[float]] = None
+    _computed_features: Dict = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
-        """Convert to dictionary, excluding None values.
+    def __post_init__(self):
+        """Validate that time is present and positive."""
+        if self.time < 0:
+            raise ValueError("Time must be non-negative")
+
+    @classmethod
+    def create(cls, time: float, **computed_features: Dict) -> "FrameFeatures":
+        """
+        Create a FrameFeatures instance with only computed features.
+
+        Args:
+            time: Time of the frame in milliseconds
+            **computed_features: Key-value pairs of computed features
 
         Returns:
-            Dict containing only the features that were computed (non-None values)
+            FrameFeatures instance with only the computed features
         """
-        # Start with time which is always included
-        result = {"time": self.time}
+        return cls(time=time, _computed_features=computed_features)
 
-        # Add other features only if they're not None
-        for key, value in asdict(self).items():
-            if key != "time" and value is not None:
-                result[key] = value
+    def to_dict(self) -> Dict:
+        """Convert to dictionary, including only computed features.
 
-        return result
+        Returns:
+            Dict containing only the features that were computed
+        """
+        return {"time": self.time, **self._computed_features}
+
+    def __getattr__(self, name: str) -> Optional[float]:
+        """Get a feature value, returning None if not computed."""
+        if name.startswith("_"):
+            raise AttributeError(f"No such attribute: {name}")
+        return self._computed_features.get(name)

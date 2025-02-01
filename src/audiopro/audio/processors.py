@@ -97,7 +97,7 @@ def process_frame(
         frame = frame.astype(np.float32) * window_func
 
         # Initialize a dictionary to store computed features
-        feature_values = {"time": (frame_index * HOP_LENGTH) / sample_rate * 1000}
+        feature_values = {}
 
         # Compute spectrum only if needed for any spectral features
         needs_spectrum = (
@@ -181,7 +181,8 @@ def process_frame(
             feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
 
         # Create FrameFeatures instance with only computed features
-        return frame_index, FrameFeatures(**feature_values)
+        time_ms = (frame_index * HOP_LENGTH) / sample_rate * 1000
+        return frame_index, FrameFeatures.create(time=time_ms, **feature_values)
 
     except (ValueError, TypeError, RuntimeError) as e:
         logger.error(f"Frame processing error at {frame_index}: {str(e)}")
