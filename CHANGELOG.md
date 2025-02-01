@@ -1,3 +1,29 @@
+## 0.8.0 (2025-02-01)
+
+### Feat
+
+- **audio/models**: enhance `FrameFeatures` with type validation and improved type hints for computed features
+- **audio/processors**: enhance feature computation by adding configurable feature selection, allowing selective computation based on provided configuration
+- **analysis/controller**: convert `FrameFeatures` to dictionary format before appending to features list, fixing the feature extraction bugs
+- **audio/models, processors**: refactor `FrameFeatures` to use a dictionary for computed features and add validation for time, fixes the `null` values being shown in the output file
+- **output/types**: change `AVAILABLE_FEATURES` to a frozenset for immutability and performance improvements, other minor changes to improve the code
+- **arg_parser**: update feature selection to use `AVAILABLE_FEATURES` and streamline feature config creation
+- **output_types**: add feature configuration and validation for audio analysis features
+- **arg_parser, output_handler, path**: update argument parsing and output handling to use `OutputFormat` type for better type safety
+- **output_handler**: refactor `write_output` to validate output path and improve documentation
+- **main**: update main execution flow to pass raw output path and include feature configuration
+- **arg_parser**: enhance argument parsing to include feature selection and improve output format handling
+- **extractor**: add feature configuration options to `extract_features` and improve logging
+- **extractor**: enhance audio analysis by adding feature configuration options and improving error handling
+- **utils**: add path handling utilities for output path validation and format extension management
+- **extractor**: make audio feature attributes optional and add `to_dict` method for `FrameFeatures`
+
+### Refactor
+
+- **audio/extractor**: optimize feature extraction by creating process function once per batch
+- **output/types**: format `create_feature_config` function for improved readability
+- **output/types**: improve feature configuration handling and default behavior
+
 ## 0.7.0 (2025-02-01)
 
 ### BREAKING CHANGE
