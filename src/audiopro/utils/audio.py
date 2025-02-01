@@ -31,7 +31,22 @@ class RhythmExtractorSingleton:
 
 
 def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
-    """Extract rhythm features from audio data."""
+    """
+    Extracts the rhythm from an audio signal.
+
+    Parameters:
+    audio (np.ndarray): A numpy array containing the audio signal.
+
+    Returns:
+    Tuple[float, np.ndarray]: A tuple containing the tempo (in beats per minute) 
+                              and an array of beat positions.
+
+    Raises:
+    TypeError: If the input audio is not a numpy array.
+    ValueError: If the input audio data is empty.
+    RuntimeError: If rhythm extraction fails for any reason.
+    """
+
     # Use numpy's built-in type checking (faster than isinstance)
     if not hasattr(audio, "dtype") or not hasattr(audio, "size"):
         raise TypeError("Audio must be a numpy array")
