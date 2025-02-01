@@ -81,6 +81,7 @@ def process_frame(
         freq_array: Array of frequency values for FFT bins
         feature_config: Optional configuration specifying which features to compute.
                       If None, all features will be computed.
+                      If provided, only features set to True will be computed.
 
     Returns:
         Tuple of frame index and extracted features, or None if processing failed
@@ -99,23 +100,27 @@ def process_frame(
         # Initialize a dictionary to store computed features
         feature_values = {}
 
+        def should_compute(feature: str) -> bool:
+            """Helper to determine if a feature should be computed."""
+            # If no config is provided, compute all features
+            if feature_config is None:
+                return True
+            # If config is provided, only compute features that are explicitly set to True
+            return feature_config.get(feature, False)
+
         # Compute spectrum only if needed for any spectral features
-        needs_spectrum = (
-            any(
-                feature_config.get(feature, True)  # Default to True if config is None
-                for feature in [
-                    "spectral_centroid",
-                    "spectral_bandwidth",
-                    "spectral_flatness",
-                    "spectral_rolloff",
-                    "mfcc",
-                    "frequency_bands",
-                    "chroma",
-                ]
-            )
-            if feature_config is not None
-            else True
+        spectral_features = frozenset(
+            {
+                "spectral_centroid",
+                "spectral_bandwidth",
+                "spectral_flatness",
+                "spectral_rolloff",
+                "frequency_bands",
+                "mfcc",
+                "chroma",
+            }
         )
+        needs_spectrum = any(should_compute(f) for f in spectral_features)
 
         if needs_spectrum:
             # Compute spectrum using Essentia's optimized implementation
@@ -126,12 +131,12 @@ def process_frame(
                 return frame_index, None
 
             # Calculate features using Essentia's optimized algorithms
-            if feature_config is None or feature_config.get("spectral_centroid"):
+            if should_compute("spectral_centroid"):
                 feature_values["spectral_centroid"] = float(
                     es.Centroid(range=sample_rate / 2)(spec)
                 )
 
-            if feature_config is None or feature_config.get("spectral_bandwidth"):
+            if should_compute("spectral_bandwidth"):
                 # Compute spectral bandwidth with numerical stability
                 spectrum_sum = np.sum(spec)  # Keep as float64 for accumulation
                 if spectrum_sum <= 1e-10:
@@ -149,18 +154,18 @@ def process_frame(
                         np.sqrt(np.clip(variance, 0, None))
                     )
 
-            if feature_config is None or feature_config.get("spectral_flatness"):
+            if should_compute("spectral_flatness"):
                 feature_values["spectral_flatness"] = float(es.Flatness()(spec))
 
-            if feature_config is None or feature_config.get("spectral_rolloff"):
+            if should_compute("spectral_rolloff"):
                 feature_values["spectral_rolloff"] = float(es.RollOff()(spec))
 
-            if feature_config is None or feature_config.get("mfcc"):
+            if should_compute("mfcc"):
                 mfcc_alg = es.MFCC(numberCoefficients=13)
                 _, mfcc_coeffs = mfcc_alg(spec)
                 feature_values["mfcc"] = mfcc_coeffs.tolist()
 
-            if feature_config is None or feature_config.get("chroma"):
+            if should_compute("chroma"):
                 freqs, mags = es.SpectralPeaks()(spec)
                 chroma_vector = (
                     es.HPCP()(freqs, mags)
@@ -169,20 +174,21 @@ def process_frame(
                 ).tolist()
                 feature_values["chroma"] = chroma_vector
 
-            if feature_config is None or feature_config.get("frequency_bands"):
+            if should_compute("frequency_bands"):
                 feature_values["frequency_bands"] = compute_frequency_bands(
                     spec, sample_rate, frame_length
                 )
 
-        if feature_config is None or feature_config.get("rms"):
+        if should_compute("rms"):
             feature_values["rms"] = float(np.sqrt(np.mean(frame**2)))
 
-        if feature_config is None or feature_config.get("zero_crossing_rate"):
+        if should_compute("zero_crossing_rate"):
             feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
 
         # Create FrameFeatures instance with only computed features
         time_ms = (frame_index * HOP_LENGTH) / sample_rate * 1000
-        return frame_index, FrameFeatures.create(time=time_ms, **feature_values)
+        result = FrameFeatures.create(time=time_ms, **feature_values)
+        return frame_index, result
 
     except (ValueError, TypeError, RuntimeError) as e:
         logger.error(f"Frame processing error at {frame_index}: {str(e)}")
