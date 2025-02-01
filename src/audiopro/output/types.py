@@ -49,7 +49,9 @@ class FeatureConfig(TypedDict, total=False):
     chroma: bool
 
 
-def create_feature_config(selected_features: Optional[List[str]] = None) -> Optional[FeatureConfig]:
+def create_feature_config(
+    selected_features: Optional[List[str]] = None,
+) -> Optional[FeatureConfig]:
     """
     Create a feature configuration dictionary based on selected features.
     Note: selected_features are assumed to be pre-validated by argparse.
@@ -68,7 +70,7 @@ def create_feature_config(selected_features: Optional[List[str]] = None) -> Opti
 
     # Create config with all features explicitly set to False by default
     config = {feature: False for feature in AVAILABLE_FEATURES}
-    
+
     # Enable only the selected features
     for feature in selected_features:
         config[feature] = True
