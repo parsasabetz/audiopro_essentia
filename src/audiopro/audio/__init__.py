@@ -1,17 +1,19 @@
-"""Audio module exports."""
+"""
+Audio processing module for feature extraction and analysis.
+"""
 
-from .audio_loader import load_and_preprocess_audio
-from .extractor import extract_features
-from .metadata import get_file_metadata
-from .feature_utils import (
+from .models import FrameFeatures
+from .processors import (
+    get_frequency_bins,
     compute_frequency_bands,
-    process_frame,
+    process_frame
 )
+from .extractor import extract_features
 
 __all__ = [
-    "load_and_preprocess_audio",
-    "extract_features",
-    "get_file_metadata",
-    "compute_frequency_bands",
-    "process_frame",
+    'FrameFeatures',
+    'get_frequency_bins',
+    'compute_frequency_bands',
+    'process_frame',
+    'extract_features'
 ]
