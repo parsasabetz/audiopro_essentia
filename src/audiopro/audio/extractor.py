@@ -27,7 +27,37 @@ logger = get_logger()
 
 
 def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
-    """Extract features with batched processing to prevent timeouts"""
+    """
+    Extracts features from the given audio data.
+
+    This function processes the audio data in frames and extracts features using
+    parallel processing for efficiency. It handles audio data that is long enough
+    for analysis and processes it in batches to optimize memory usage.
+
+    Args:
+        audio_data (np.ndarray): The audio data as a NumPy array.
+        sample_rate (int): The sample rate of the audio data.
+
+    Returns:
+        list: A list of extracted features.
+
+    Raises:
+        ValueError: If the audio data is too short for analysis or if no valid
+                    features could be extracted.
+
+    Notes:
+        - The function uses a frame generator to process the audio data in frames.
+        - It precomputes common arrays like the window function and frequency array
+          for efficiency.
+        - The maximum number of workers for parallel processing is calculated based
+          on the audio data length.
+        - The audio data is processed in batches, and each batch is processed in
+          parallel using a multiprocessing pool.
+        - If an error occurs during batch processing, it logs the error and continues
+          with the next batch.
+        - The function returns a list of valid features extracted from the audio data.
+    """
+
     if len(audio_data) < FRAME_LENGTH:
         raise ValueError("Audio data too short for analysis")
 
