@@ -7,9 +7,12 @@ Features are extracted per frame with multiprocessing, preserving output order.
 from functools import partial
 import multiprocessing as mp
 from itertools import islice
+from typing import Optional, List, Iterator, Tuple, Callable
+import gc
 
 # Third-party imports
 import numpy as np
+from numpy.typing import NDArray
 
 # Local util imports
 from audiopro.utils.logger import get_logger
@@ -25,37 +28,65 @@ from .feature_utils import process_frame
 # Set up logger
 logger = get_logger()
 
-
-def extract_features(audio_data: np.ndarray, sample_rate: int, on_feature=None) -> list:
+def create_frame_generator(
+    audio_data: NDArray[np.float32],
+    total_samples: int,
+    total_frames: int
+) -> Iterator[Tuple[int, NDArray[np.float32]]]:
+    """
+    Creates a memory-efficient generator for audio frames.
+    
+    Args:
+        audio_data: The input audio data
+        total_samples: Total number of samples in audio
+        total_frames: Total number of frames to process
+        
+    Yields:
+        Tuples of (frame_index, frame_data)
+    """
+    for frame_idx in range(total_frames):
+        start_idx = frame_idx * HOP_LENGTH
+        if start_idx + FRAME_LENGTH > total_samples:
+            break
+        frame_data = audio_data[start_idx : start_idx + FRAME_LENGTH].copy()
+        if len(frame_data) == FRAME_LENGTH:
+            yield (frame_idx, frame_data)
+        # Explicitly delete frame data to help garbage collection
+        del frame_data
+    
+def extract_features(
+    audio_data: NDArray[np.float32],
+    sample_rate: int,
+    on_feature: Optional[Callable] = None
+) -> List:
     """
     Extracts features from the given audio data by processing it in frames.
 
     The audio data is divided into overlapping frames according to FRAME_LENGTH and HOP_LENGTH.
     Each frame is preprocessed with a window function and transformed using FFT to extract spectral features.
     Multiprocessing is used to distribute frame processing across multiple processes, ensuring a low CPU and memory footprint.
-    If an on_feature callback is provided, valid features are dispatched immediately via the callback,
-    avoiding the accumulation of large in-memory lists.
-
+    
     Args:
-        audio_data (np.ndarray): The audio data as a numpy array.
-        sample_rate (int): The sample rate of the audio.
-        on_feature (callable, optional): A function to receive each extracted feature immediately.
-            When provided, the function returns an empty list, and the caller is responsible for handling features.
+        audio_data: The audio data as a numpy array
+        sample_rate: The sample rate of the audio
+        on_feature: Optional callback for immediate feature processing
 
     Returns:
-        list: A list of features in native Python types if no on_feature callback is provided; otherwise, an empty list.
+        List of features in native Python types if no on_feature callback is provided; otherwise, an empty list
 
     Raises:
-        ValueError: If the audio data is too short for analysis or if no valid features can be extracted.
-
-    Notes:
-        - Uses a streaming frame generator and batches processing to minimize memory usage.
-        - Precomputes and reuses window and frequency arrays for efficiency.
-        - Logs progress and warns if processed frames fall below an acceptable completion ratio.
+        ValueError: If the audio data is too short or invalid
+        RuntimeError: If processing fails critically
     """
-
+    if not isinstance(audio_data, np.ndarray):
+        raise ValueError("Audio data must be a numpy array")
+        
     if len(audio_data) < FRAME_LENGTH:
-        raise ValueError("Audio data too short for analysis")
+        raise ValueError(f"Audio data too short for analysis: {len(audio_data)} samples < {FRAME_LENGTH} required")
+
+    # Convert to float32 for memory efficiency if not already
+    if audio_data.dtype != np.float32:
+        audio_data = audio_data.astype(np.float32)
 
     # Precise frame calculation
     total_samples = len(audio_data)
@@ -67,65 +98,77 @@ def extract_features(audio_data: np.ndarray, sample_rate: int, on_feature=None) 
     logger.info(f"Audio duration: {expected_duration:.2f} seconds")
     logger.info(f"Expected number of frames: {total_frames}")
 
-    # Improved frame generator with boundary checking
-    def frame_generator():
-        for frame_idx in range(total_frames):
-            start_idx = frame_idx * HOP_LENGTH
-            if start_idx + FRAME_LENGTH > total_samples:
-                break
-            frame_data = audio_data[start_idx : start_idx + FRAME_LENGTH]
-            if len(frame_data) == FRAME_LENGTH:  # Ensure complete frames
-                yield (frame_idx, frame_data)
-
-    # Precompute arrays once
+    # Precompute arrays once and ensure they're float32
     window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
-    freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
+    freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1/sample_rate).astype(np.float32)
 
-    # Optimal batch size calculation
-    MAX_WORKERS = calculate_max_workers(total_samples, FRAME_LENGTH, HOP_LENGTH)
+    # Optimal resource allocation
+    MAX_WORKERS = min(calculate_max_workers(total_samples, FRAME_LENGTH, HOP_LENGTH), mp.cpu_count())
+    CHUNK_SIZE = max(1, min(100, total_frames // (MAX_WORKERS * 4)))  # Adaptive chunk size
+    
     processed_frames = 0
-    valid_features = []
+    valid_features = [] if on_feature is None else None
+    error_count = 0
+    MAX_ERRORS = total_frames // 10  # Allow up to 10% error rate
 
-    # Process batches with a streaming generator using minimal memory footprint
-    with mp.Pool(processes=MAX_WORKERS) as pool:
-        frames_iter = frame_generator()
-        # Process batches until no frames remain
-        for batch_frames in iter(lambda: list(islice(frames_iter, BATCH_SIZE)), []):
-            process_func = partial(
-                process_frame,
-                sample_rate=sample_rate,
-                frame_length=FRAME_LENGTH,
-                window_func=window_func,
-                freq_array=freq_array,
-            )
-            try:
-                # Use imap with a chunksize for improved memory usage
-                for _, feature in pool.imap(process_func, batch_frames, chunksize=100):
-                    if feature is not None:
-                        processed_frames += 1
-                        if on_feature is not None:
-                            # Immediately dispatch the feature instead of storing
-                            on_feature(feature)
+    try:
+        # Process batches with a streaming generator using minimal memory footprint
+        with mp.Pool(processes=MAX_WORKERS) as pool:
+            frames_iter = create_frame_generator(audio_data, total_samples, total_frames)
+            
+            # Process batches until no frames remain
+            for batch_frames in iter(lambda: list(islice(frames_iter, BATCH_SIZE)), []):
+                if error_count > MAX_ERRORS:
+                    raise RuntimeError(f"Too many processing errors: {error_count}")
+                    
+                process_func = partial(
+                    process_frame,
+                    sample_rate=sample_rate,
+                    frame_length=FRAME_LENGTH,
+                    window_func=window_func,
+                    freq_array=freq_array,
+                )
+                
+                try:
+                    # Use imap with optimized chunk size for improved memory usage
+                    for frame_idx, feature in pool.imap(process_func, batch_frames, chunksize=CHUNK_SIZE):
+                        if feature is not None:
+                            if on_feature is not None:
+                                on_feature(feature)
+                            else:
+                                valid_features.append(feature)
                         else:
-                            valid_features.append(feature)
-                    else:
+                            error_count += 1
                         processed_frames += 1
-            except (mp.TimeoutError, mp.ProcessError) as e:
-                logger.error("Error processing a batch: %s", str(e))
-                continue
+                        
+                        # Periodic progress updates
+                        if processed_frames % 1000 == 0:
+                            logger.info(f"Processed {processed_frames}/{total_frames} frames")
+                            
+                except (mp.TimeoutError, mp.ProcessError) as e:
+                    error_count += len(batch_frames)
+                    logger.error(f"Batch processing error: {str(e)}")
+                    continue
+                
+                # Force garbage collection periodically
+                if processed_frames % (BATCH_SIZE * 10) == 0:
+                    gc.collect()
 
-            logger.info("Processed %d/%d frames", processed_frames, total_frames)
+    except Exception as e:
+        logger.error(f"Critical error during processing: {str(e)}")
+        raise RuntimeError(f"Feature extraction failed: {str(e)}")
 
-    if on_feature is None and not valid_features:
-        raise ValueError("No valid features could be extracted")
+    finally:
+        # Clean up
+        del window_func, freq_array
+        gc.collect()
 
     completion_ratio = processed_frames / total_frames
     if completion_ratio < 0.97:  # Allow for up to 3% frame loss
-        logger.warning(
-            "Only processed %.1f%% of expected frames", completion_ratio * 100
-        )
+        logger.warning(f"Only processed {completion_ratio * 100:.1f}% of expected frames")
 
-    logger.info("Successfully processed %d frames", processed_frames)
-    if on_feature is not None:
-        return []
-    return optimized_convert_to_native_types(valid_features)
+    if valid_features is not None:
+        if not valid_features:
+            raise ValueError("No valid features could be extracted")
+        return optimized_convert_to_native_types(valid_features)
+    return []
