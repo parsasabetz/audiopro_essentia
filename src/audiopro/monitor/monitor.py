@@ -87,7 +87,9 @@ def print_performance_stats(
         print("\n" + "=" * 50)
         print("EXECUTION SUMMARY")
         print("=" * 50)
-        print(f"\nExecution Time: {execution_time:.4f} seconds")
+        print(
+            f"\nExecution Time: {execution_time:.4f} seconds ({execution_time*1000:.2f} ms)"
+        )
         print("Performance monitoring was skipped")
         print("\n" + "=" * 50)
         return
@@ -130,7 +132,9 @@ def print_performance_stats(
     print("\n" + "=" * 50)
     print("PERFORMANCE METRICS")
     print("=" * 50)
-    print(f"\nExecution Time: {execution_time:.4f} seconds")
+    print(
+        f"\nExecution Time: {execution_time:.4f} seconds ({execution_time*1000:.2f} ms)"
+    )
 
     print("\nProgram CPU Statistics:")
     print(f"├── Average CPU Usage per Core: {avg_cpu:.2f}%")
