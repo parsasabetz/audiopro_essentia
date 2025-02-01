@@ -2,15 +2,18 @@
 Audio Processing and Performance Monitoring Tool
 """
 
+# typing imports
+from typing import Optional, Callable, List
+
 # Standard library imports
 import os
 import threading
 import time
-from typing import List
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import signal
 from contextlib import contextmanager
+import importlib
 
 # Local imports
 # CLI parsing
@@ -25,14 +28,27 @@ from .audio.metadata import get_file_metadata
 from .utils import optimized_convert_to_native_types, extract_rhythm
 from .utils.logger import get_logger
 
-# Performance monitoring
-from .monitor.monitor import monitor_cpu_usage, print_performance_stats
-
 # Output handling
 from .output.output_handler import write_output
 from .output.types import AudioAnalysis
 
 logger = get_logger(__name__)
+
+
+def load_monitor_functions() -> tuple[Callable, Callable]:
+    """
+    Dynamically imports the monitor module and returns two functions from it.
+
+    This function imports the `monitor.monitor` module from the `audiopro` package
+    and retrieves two functions: `monitor_cpu_usage` and `print_performance_stats`.
+    These functions are returned as a tuple.
+
+    Returns:
+        tuple[Callable, Callable]: A tuple containing the `monitor_cpu_usage` and 
+        `print_performance_stats` functions from the `monitor.monitor` module.
+    """
+    monitor_module = importlib.import_module(".monitor.monitor", package="audiopro")
+    return (monitor_module.monitor_cpu_usage, monitor_module.print_performance_stats)
 
 
 @contextmanager
@@ -81,11 +97,17 @@ async def analyze_audio(
     start_time = time.time()
     cpu_usage_list: List[float] = []
     active_cores_list: List[int] = []
+    monitoring_thread: Optional[threading.Thread] = None
+    monitor_cpu_usage = None
+    print_performance_stats = None
+
+    if not skip_monitoring:
+        # Only import monitoring functions if needed
+        monitor_cpu_usage, print_performance_stats = load_monitor_functions()
 
     with graceful_shutdown() as stop_flag:
-        monitoring_thread = None
         try:
-            if not skip_monitoring:
+            if not skip_monitoring and monitor_cpu_usage:
                 monitoring_thread = threading.Thread(
                     target=monitor_cpu_usage,
                     args=(cpu_usage_list, active_cores_list, stop_flag),
@@ -153,9 +175,13 @@ async def analyze_audio(
             await write_output(analysis, final_output, output_format)
 
             end_time = time.time()
-            print_performance_stats(
-                start_time, end_time, cpu_usage_list, active_cores_list
-            )
+            if not skip_monitoring and print_performance_stats:
+                print_performance_stats(
+                    start_time, end_time, cpu_usage_list, active_cores_list
+                )
+            else:
+                execution_time = end_time - start_time
+                logger.info(f"Execution Time: {execution_time:.4f} seconds")
 
         except Exception as e:
             logger.error("Analysis failed: %s", str(e))
