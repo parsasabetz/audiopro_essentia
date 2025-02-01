@@ -61,32 +61,41 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
     if len(audio_data) < FRAME_LENGTH:
         raise ValueError("Audio data too short for analysis")
 
-    # Frame generator for memory efficiency
+    # Precise frame calculation
+    total_samples = len(audio_data)
+    max_start_idx = total_samples - FRAME_LENGTH
+    total_frames = (max_start_idx + HOP_LENGTH) // HOP_LENGTH
+    expected_duration = total_samples / sample_rate
+
+    logger.info(f"Audio length: {total_samples} samples")
+    logger.info(f"Audio duration: {expected_duration:.2f} seconds")
+    logger.info(f"Expected number of frames: {total_frames}")
+
+    # Improved frame generator with boundary checking
     def frame_generator():
-        for i in range(0, len(audio_data) - FRAME_LENGTH + 1, HOP_LENGTH):
-            yield (i, audio_data[i : i + FRAME_LENGTH])
+        for frame_idx in range(total_frames):
+            start_idx = frame_idx * HOP_LENGTH
+            if start_idx + FRAME_LENGTH > total_samples:
+                break
+            frame_data = audio_data[start_idx : start_idx + FRAME_LENGTH]
+            if len(frame_data) == FRAME_LENGTH:  # Ensure complete frames
+                yield (frame_idx, frame_data)
 
-    frames = frame_generator()
-
-    # Precompute common arrays once
+    # Precompute arrays once
     window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
     freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
 
-    # Calculate the maximum number of workers based on the audio data length
-    MAX_WORKERS = calculate_max_workers(len(audio_data), FRAME_LENGTH, HOP_LENGTH)
+    # Optimal batch size calculation
+    MAX_WORKERS = calculate_max_workers(total_samples, FRAME_LENGTH, HOP_LENGTH)
+    total_batches = (total_frames + BATCH_SIZE - 1) // BATCH_SIZE
     valid_features = []
+    processed_frames = 0
 
-    # Process audio data in batches
-    total_batches = (len(audio_data) - FRAME_LENGTH + 1) // (
-        BATCH_SIZE * HOP_LENGTH
-    ) + 1
-
-    # Process each batch of frames in parallel
+    # Process batches with progress tracking
     with mp.Pool(processes=MAX_WORKERS) as pool:
+        frames = frame_generator()
         for batch_idx in range(total_batches):
-            start_idx = batch_idx * BATCH_SIZE
-            end_idx = min(start_idx + BATCH_SIZE, len(audio_data) - FRAME_LENGTH + 1)
-            batch_frames = list(islice(frames, start_idx, end_idx))
+            batch_frames = list(islice(frames, BATCH_SIZE))
             if not batch_frames:
                 break
 
@@ -100,17 +109,26 @@ def extract_features(audio_data: np.ndarray, sample_rate: int) -> list:
 
             try:
                 batch_results = pool.map(process_func, batch_frames)
+                # Track valid results
+                for _, feature in sorted(batch_results, key=lambda x: x[0]):
+                    if feature is not None:
+                        processed_frames += 1
+                        valid_features.append(feature)
             except (mp.TimeoutError, mp.ProcessError) as e:
-                logger.error("Error processing batch %d: %s", batch_idx + 1, str(e))
+                logger.error(f"Error processing batch {batch_idx + 1}: {str(e)}")
                 continue
 
-            for _, feature in sorted(batch_results, key=lambda x: x[0]):
-                if feature is not None:
-                    valid_features.append(feature)
+            logger.info(
+                f"Processed batch {batch_idx + 1}/{total_batches} ({processed_frames}/{total_frames} frames)"
+            )
 
-            logger.info("Processed batch %d/%d", batch_idx + 1, total_batches)
-
+    # Validate processing completion
     if not valid_features:
         raise ValueError("No valid features could be extracted")
 
+    completion_ratio = processed_frames / total_frames
+    if completion_ratio < 0.95:  # Allow for up to 5% frame loss
+        logger.warning(f"Only processed {completion_ratio:.1%} of expected frames")
+
+    logger.info(f"Successfully processed {processed_frames} frames")
     return optimized_convert_to_native_types(valid_features)
