@@ -3,7 +3,7 @@ Audio Processing and Performance Monitoring Tool
 """
 
 # typing imports
-from typing import Optional, Callable, List
+from typing import Optional, List
 
 # Standard library imports
 import os
@@ -11,9 +11,6 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
-import signal
-from contextlib import contextmanager
-import importlib
 
 # Local imports
 # CLI parsing
@@ -27,48 +24,16 @@ from .audio.metadata import get_file_metadata
 # Analysis utilities
 from .utils import optimized_convert_to_native_types, extract_rhythm
 from .utils.logger import get_logger
+from .utils.process import graceful_shutdown
 
 # Output handling
 from .output.output_handler import write_output
 from .output.types import AudioAnalysis
 
+# Monitoring functions
+from .monitor.loader import load_monitor_functions
+
 logger = get_logger(__name__)
-
-
-def load_monitor_functions() -> tuple[Callable, Callable]:
-    """
-    Dynamically imports the monitor module and returns two functions from it.
-
-    This function imports the `monitor.monitor` module from the `audiopro` package
-    and retrieves two functions: `monitor_cpu_usage` and `print_performance_stats`.
-    These functions are returned as a tuple.
-
-    Returns:
-        tuple[Callable, Callable]: A tuple containing the `monitor_cpu_usage` and 
-        `print_performance_stats` functions from the `monitor.monitor` module.
-    """
-    monitor_module = importlib.import_module(".monitor.monitor", package="audiopro")
-    return (monitor_module.monitor_cpu_usage, monitor_module.print_performance_stats)
-
-
-@contextmanager
-def graceful_shutdown():
-    """Context manager for graceful shutdown."""
-    original_handlers = {}
-    stop_flag = threading.Event()
-
-    def handler(_signum, _frame):
-        logger.info("Received shutdown signal, cleaning up...")
-        stop_flag.set()
-
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        original_handlers[sig] = signal.signal(sig, handler)
-
-    try:
-        yield stop_flag
-    finally:
-        for sig, original_handler in original_handlers.items():
-            signal.signal(sig, original_handler)
 
 
 async def analyze_audio(
@@ -86,6 +51,7 @@ async def analyze_audio(
         output_format: Format of the output file ('msgpack' by default or 'json' if specified)
         skip_monitoring: Flag to skip performance monitoring
     """
+
     # Single input validation block
     output_format = output_format.lower().strip()
     if output_format not in ["json", "msgpack"]:
