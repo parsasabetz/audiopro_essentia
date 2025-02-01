@@ -3,8 +3,8 @@ Module for audio feature extraction.
 Features are extracted per frame with multiprocessing, preserving output order.
 """
 
-# typing imports
-from typing import Optional, List, Iterator, Tuple, Callable
+# Typing imports
+from typing import Optional, List, Iterator, Tuple, Callable, Dict
 
 # Standard library imports
 from functools import partial
@@ -19,12 +19,12 @@ from numpy.typing import NDArray
 # Local application imports
 from audiopro.utils.logger import get_logger
 from audiopro.utils import (
-    optimized_convert_to_native_types,
     calculate_max_workers,
     FRAME_LENGTH,
     HOP_LENGTH,
     BATCH_SIZE,
 )
+from audiopro.output.types import FeatureConfig
 from .processors import process_frame
 from .models import FrameFeatures
 
@@ -61,7 +61,8 @@ def extract_features(
     audio_data: NDArray[np.float32],
     sample_rate: int,
     on_feature: Optional[Callable[[FrameFeatures], None]] = None,
-) -> List[FrameFeatures]:
+    feature_config: Optional[FeatureConfig] = None,
+) -> List[Dict]:
     """
     Extracts features from the given audio data by processing it in frames.
 
@@ -73,6 +74,8 @@ def extract_features(
         audio_data: The audio data as a numpy array
         sample_rate: The sample rate of the audio
         on_feature: Optional callback for immediate feature processing
+        feature_config: Optional configuration specifying which features to compute.
+                      If None, all features will be computed.
 
     Returns:
         List of features in native Python types if no on_feature callback is provided; otherwise, an empty list
@@ -103,6 +106,13 @@ def extract_features(
     logger.info(f"Audio duration: {expected_duration:.2f} seconds")
     logger.info(f"Expected number of frames: {total_frames}")
 
+    # Log which features will be computed
+    if feature_config is not None:
+        enabled_features = [k for k, v in feature_config.items() if v]
+        logger.info(f"Computing selected features: {', '.join(enabled_features)}")
+    else:
+        logger.info("Computing all available features")
+
     # Precompute arrays once and ensure they're float32
     window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
     freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
@@ -116,7 +126,7 @@ def extract_features(
     )  # Adaptive chunk size
 
     processed_frames = 0
-    valid_features: List[FrameFeatures] = [] if on_feature is None else []
+    valid_features: List[Dict] = [] if on_feature is None else []
     error_count = 0
     MAX_ERRORS = total_frames // 2.5  # Allow up to 2.5% error rate
 
@@ -138,6 +148,7 @@ def extract_features(
                     frame_length=FRAME_LENGTH,
                     window_func=window_func,
                     freq_array=freq_array,
+                    feature_config=feature_config,
                 )
 
                 try:
@@ -149,7 +160,8 @@ def extract_features(
                             if on_feature is not None:
                                 on_feature(feature)
                             else:
-                                valid_features.append(feature)
+                                # Convert to dict excluding None values
+                                valid_features.append(feature.to_dict())
                         else:
                             error_count += 1
                         processed_frames += 1
@@ -187,5 +199,5 @@ def extract_features(
     if not on_feature:
         if not valid_features:
             raise ValueError("No valid features could be extracted")
-        return optimized_convert_to_native_types(valid_features)
+        return valid_features  # Already in native types since we used to_dict()
     return []
