@@ -1,6 +1,6 @@
 """Type definitions for audio analysis output."""
 
-from typing import List, TypedDict
+from typing import List, TypedDict, Optional
 
 
 class QualityMetrics(TypedDict):
@@ -33,7 +33,7 @@ class Metadata(TypedDict):
     audio_info: AudioInfo
 
 
-class FrequencyBands(TypedDict):
+class FrequencyBands(TypedDict, total=False):
     sub_bass: float  # 20-60 Hz
     bass: float  # 60-250 Hz
     low_mid: float  # 250-500 Hz
@@ -42,34 +42,53 @@ class FrequencyBands(TypedDict):
     treble: float  # 5000-20000 Hz
 
 
-class AudioFeature(TypedDict):
+class FeatureConfig(TypedDict, total=False):
+    """Configuration for which audio features to extract.
+
+    Set a field to True to include that feature in the analysis.
+    Omitted fields or fields set to False will be excluded from computation and output.
+    """
+
+    rms: bool
+    spectral_centroid: bool
+    spectral_bandwidth: bool
+    spectral_flatness: bool
+    spectral_rolloff: bool
+    zero_crossing_rate: bool
+    mfcc: bool
+    frequency_bands: bool
+    chroma: bool
+
+
+class AudioFeature(TypedDict, total=False):
     """A TypedDict containing audio features extracted from an audio signal.
 
     Each instance represents a single frame of audio analysis with various acoustic measurements.
+    Features will only be present if they were requested in the FeatureConfig.
 
     Attributes:
         time (float): Time position in seconds for the current frame.
-        rms (float): Root Mean Square energy value.
-        spectral_centroid (float): Weighted mean of frequencies present in the signal.
-        spectral_bandwidth (float): Variance of frequencies around the spectral centroid.
-        spectral_flatness (float): Measure of how noise-like the signal is (0=pure tone, 1=noise).
-        spectral_rolloff (float): Frequency below which a certain percentage of spectral energy exists.
-        zero_crossing_rate (float): Rate at which signal changes from positive to negative or vice versa.
-        mfcc (List[float]): Mel-frequency cepstral coefficients (13 values).
-        frequency_bands (FrequencyBands): Energy distribution across frequency bands.
-        chroma (List[float]): Distribution of spectral energy across the 12 pitch classes (12 values).
+        rms (Optional[float]): Root Mean Square energy value.
+        spectral_centroid (Optional[float]): Weighted mean of frequencies present in the signal.
+        spectral_bandwidth (Optional[float]): Variance of frequencies around the spectral centroid.
+        spectral_flatness (Optional[float]): Measure of how noise-like the signal is (0=pure tone, 1=noise).
+        spectral_rolloff (Optional[float]): Frequency below which a certain percentage of spectral energy exists.
+        zero_crossing_rate (Optional[float]): Rate at which signal changes from positive to negative or vice versa.
+        mfcc (Optional[List[float]]): Mel-frequency cepstral coefficients (13 values).
+        frequency_bands (Optional[FrequencyBands]): Energy distribution across frequency bands.
+        chroma (Optional[List[float]]): Distribution of spectral energy across the 12 pitch classes (12 values).
     """
 
-    time: float
-    rms: float
-    spectral_centroid: float
-    spectral_bandwidth: float
-    spectral_flatness: float
-    spectral_rolloff: float
-    zero_crossing_rate: float
-    mfcc: List[float]  # 13 coefficients
-    frequency_bands: FrequencyBands
-    chroma: List[float]  # 12 values
+    time: float  # Time is always required
+    rms: Optional[float]
+    spectral_centroid: Optional[float]
+    spectral_bandwidth: Optional[float]
+    spectral_flatness: Optional[float]
+    spectral_rolloff: Optional[float]
+    zero_crossing_rate: Optional[float]
+    mfcc: Optional[List[float]]  # 13 coefficients
+    frequency_bands: Optional[FrequencyBands]
+    chroma: Optional[List[float]]  # 12 values
 
 
 class AudioAnalysis(TypedDict):

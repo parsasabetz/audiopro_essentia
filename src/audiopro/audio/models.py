@@ -1,8 +1,6 @@
 # typing imports
-from typing import Dict, List
-
-# Standard library imports
-from dataclasses import dataclass
+from typing import Dict, List, Optional
+from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -23,12 +21,28 @@ class FrameFeatures:
     """
 
     time: float
-    rms: float
-    spectral_centroid: float
-    spectral_bandwidth: float
-    spectral_flatness: float
-    spectral_rolloff: float
-    zero_crossing_rate: float
-    mfcc: List[float]
-    frequency_bands: Dict[str, float]
-    chroma: List[float]
+    rms: Optional[float] = None
+    spectral_centroid: Optional[float] = None
+    spectral_bandwidth: Optional[float] = None
+    spectral_flatness: Optional[float] = None
+    spectral_rolloff: Optional[float] = None
+    zero_crossing_rate: Optional[float] = None
+    mfcc: Optional[List[float]] = None
+    frequency_bands: Optional[Dict[str, float]] = None
+    chroma: Optional[List[float]] = None
+
+    def to_dict(self) -> Dict:
+        """Convert to dictionary, excluding None values.
+
+        Returns:
+            Dict containing only the features that were computed (non-None values)
+        """
+        # Start with time which is always included
+        result = {"time": self.time}
+
+        # Add other features only if they're not None
+        for key, value in asdict(self).items():
+            if key != "time" and value is not None:
+                result[key] = value
+
+        return result
