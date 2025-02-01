@@ -1,21 +1,23 @@
 """Type definitions for audio analysis output."""
 
 # typing imports
-from typing import List, TypedDict, Optional, Set
+from typing import List, TypedDict, Optional, FrozenSet
 
 
-# Define available features
-AVAILABLE_FEATURES: Set[str] = {
-    "rms",
-    "spectral_centroid",
-    "spectral_bandwidth",
-    "spectral_flatness",
-    "spectral_rolloff",
-    "zero_crossing_rate",
-    "mfcc",
-    "frequency_bands",
-    "chroma",
-}
+# Define available features as a frozenset for immutability and performance
+AVAILABLE_FEATURES: FrozenSet[str] = frozenset(
+    {
+        "rms",
+        "spectral_centroid",
+        "spectral_bandwidth",
+        "spectral_flatness",
+        "spectral_rolloff",
+        "zero_crossing_rate",
+        "mfcc",
+        "frequency_bands",
+        "chroma",
+    }
+)
 
 
 class FeatureConfig(TypedDict, total=False):
@@ -52,26 +54,20 @@ def create_feature_config(
 ) -> Optional[FeatureConfig]:
     """
     Create a feature configuration dictionary based on selected features.
+    Note: selected_features are assumed to be pre-validated by argparse.
 
     Args:
         selected_features: List of feature names to enable. If None, all features will be computed.
+                         Must be a subset of `AVAILABLE_FEATURES`.
 
     Returns:
-        Optional[FeatureConfig]: Configuration with selected features set to True, others to False.
+        Optional[FeatureConfig]: Configuration with selected features set to `True`, others to `False`.
                                None if no features were selected (compute all).
-
-    Raises:
-        ValueError: If an invalid feature name is provided
     """
     if selected_features is None:
         return None
 
-    if invalid_features := set(selected_features) - AVAILABLE_FEATURES:
-        raise ValueError(
-            f"Invalid feature(s): {', '.join(invalid_features)}. "
-            f"Available features are: {', '.join(sorted(AVAILABLE_FEATURES))}"
-        )
-
+    # Create config using dict comprehension (pre-validated features)
     return {feature: feature in selected_features for feature in AVAILABLE_FEATURES}
 
 
