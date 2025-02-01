@@ -1,6 +1,78 @@
 """Type definitions for audio analysis output."""
 
-from typing import List, TypedDict, Optional
+# typing imports
+from typing import List, TypedDict, Optional, Set
+
+
+# Define available features
+AVAILABLE_FEATURES: Set[str] = {
+    "rms",
+    "spectral_centroid",
+    "spectral_bandwidth",
+    "spectral_flatness",
+    "spectral_rolloff",
+    "zero_crossing_rate",
+    "mfcc",
+    "frequency_bands",
+    "chroma",
+}
+
+
+class FeatureConfig(TypedDict, total=False):
+    """Configuration for which audio features to extract.
+
+    Set a field to True to include that feature in the analysis.
+    Omitted fields or fields set to False will be excluded from computation and output.
+
+    Available features:
+        - rms: Root Mean Square energy value
+        - spectral_centroid: Weighted mean of frequencies
+        - spectral_bandwidth: Variance of frequencies around the centroid
+        - spectral_flatness: Measure of how noise-like the signal is
+        - spectral_rolloff: Frequency below which most spectral energy exists
+        - zero_crossing_rate: Rate of signal polarity changes
+        - mfcc: Mel-frequency cepstral coefficients (13 values)
+        - frequency_bands: Energy in different frequency bands
+        - chroma: Distribution of spectral energy across pitch classes
+    """
+
+    rms: bool
+    spectral_centroid: bool
+    spectral_bandwidth: bool
+    spectral_flatness: bool
+    spectral_rolloff: bool
+    zero_crossing_rate: bool
+    mfcc: bool
+    frequency_bands: bool
+    chroma: bool
+
+
+def create_feature_config(
+    selected_features: Optional[List[str]] = None,
+) -> Optional[FeatureConfig]:
+    """
+    Create a feature configuration dictionary based on selected features.
+
+    Args:
+        selected_features: List of feature names to enable. If None, all features will be computed.
+
+    Returns:
+        Optional[FeatureConfig]: Configuration with selected features set to True, others to False.
+                               None if no features were selected (compute all).
+
+    Raises:
+        ValueError: If an invalid feature name is provided
+    """
+    if selected_features is None:
+        return None
+
+    if invalid_features := set(selected_features) - AVAILABLE_FEATURES:
+        raise ValueError(
+            f"Invalid feature(s): {', '.join(invalid_features)}. "
+            f"Available features are: {', '.join(sorted(AVAILABLE_FEATURES))}"
+        )
+
+    return {feature: feature in selected_features for feature in AVAILABLE_FEATURES}
 
 
 class QualityMetrics(TypedDict):
@@ -40,24 +112,6 @@ class FrequencyBands(TypedDict, total=False):
     mid: float  # 500-2000 Hz
     upper_mid: float  # 2000-5000 Hz
     treble: float  # 5000-20000 Hz
-
-
-class FeatureConfig(TypedDict, total=False):
-    """Configuration for which audio features to extract.
-
-    Set a field to True to include that feature in the analysis.
-    Omitted fields or fields set to False will be excluded from computation and output.
-    """
-
-    rms: bool
-    spectral_centroid: bool
-    spectral_bandwidth: bool
-    spectral_flatness: bool
-    spectral_rolloff: bool
-    zero_crossing_rate: bool
-    mfcc: bool
-    frequency_bands: bool
-    chroma: bool
 
 
 class AudioFeature(TypedDict, total=False):
