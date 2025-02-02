@@ -27,8 +27,11 @@ pip install git+ssh://git@github.com/parsasabetz/audiopro.git
 # Analyze all features (creates output.msgpack)
 python -m audiopro input.wav output
 
-# Analyze specific features only
+# Analyze specific features only (computes only the selected features):
 python -m audiopro input.wav output --features rms spectral_centroid mfcc
+
+# To compute all features, either omit --features or pass an empty list:
+python -m audiopro input.wav output --features
 
 # Output as JSON (creates output.json)
 python -m audiopro input.wav output --format json
@@ -55,15 +58,14 @@ await analyze_audio(
     output_format="msgpack"  # This determines the extension (.msgpack)
 )
 
-# Analyze specific features only
+# Analyze specific features only. 
+# Note: Passing an empty dictionary (or one with all False values) computes all features.
 feature_config: FeatureConfig = {
     "rms": True,
     "spectral_centroid": True,
     "mfcc": True,
-    # Features not included or set to False will be excluded
-    "spectral_bandwidth": False,  # Optional: explicitly disable
-    "spectral_flatness": False,   # Optional: explicitly disable
-    # ... other features will be excluded by default
+    # Features not included or set to False will be excluded. 
+    # To compute all features, simply pass None or an empty dict.
 }
 
 await analyze_audio(
@@ -77,7 +79,7 @@ await analyze_audio(
 from audiopro.batch import batch_process_audio
 
 results = await batch_process_audio(
-    input_files=["file1.wav", "file2.wav"],
+    input_files=["file1.wav", "file2.mp3"],
     output_dir="output",  # Directory name only
     feature_config=feature_config,
     max_concurrent=2  # Process 2 files at a time
@@ -128,19 +130,30 @@ Feature selection can be done in three ways:
 2. Include only the features you want with `True` values
 3. Explicitly disable features with `False` values (optional)
 
+**Important:**  
+- The `feature_config` argument controls which features to compute.  
+  - If you pass `None`, the analysis computes all features.  
+  - If you pass a dictionary with selected features enabled, only those will be computed.  
+  - If an empty dictionary (or a dictionary where no feature is enabled) is provided, it will default to computing all features.
+- The output includes an `included_features` field that lists which features were computed.  
+  - An empty list indicates that all available features were computed.
+
 Example configurations:
 ```python
+from audiopro import FeatureConfig
+
 # Compute all features
-feature_config = None
+feature_config = None // or
+feature_config = {}
 
 # Compute only RMS and MFCC
-feature_config = {
+feature_config: FeatureConfig = {
     "rms": True,
     "mfcc": True
 }
 
-# Compute everything except spectral features
-feature_config = {
+# Compute everything _except_ spectral features
+feature_config: FeatureConfig = {
     "spectral_centroid": False,
     "spectral_bandwidth": False,
     "spectral_flatness": False,
@@ -176,9 +189,10 @@ feature_config = {
     },
     "tempo": float,  # Beats per minute
     "beats": [float],  # List of beat timestamps in seconds
+    "included_features": [], // List of enabled features; empty means all were computed.
     "features": [
         {
-            "time": float,  # Time in seconds (always included)
+            "time": float,  # Time in milliseconds (always included)
             # Only requested features will be included:
             "rms": float,   # Optional
             "spectral_centroid": float,  # Optional
