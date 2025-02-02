@@ -10,6 +10,7 @@ from .types import (
     FrequencyBands,
     QualityMetrics,
 )
+from .modules import _write_json, _write_msgpack
 
 __all__ = [
     "write_output",
@@ -20,4 +21,6 @@ __all__ = [
     "AudioInfo",
     "FrequencyBands",
     "QualityMetrics",
+    "_write_json",
+    "_write_msgpack",
 ]
