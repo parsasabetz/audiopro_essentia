@@ -231,17 +231,41 @@ feature_config: FeatureConfig = {
 audiopro/
 └── src/
     └── audiopro/
-        ├── __init__.py         # Public API
-        ├── analysis/           # Analysis controller
-        ├── audio/             # Audio processing
-        │   ├── extractor.py   # Feature extraction
-        │   ├── processors.py  # Frame processing
-        │   └── models.py      # Data models
-        ├── output/            # Output handling
-        │   ├── types.py       # Type definitions
-        │   └── handler.py     # Output writing
-        ├── monitor/           # Performance monitoring
-        └── utils/             # Utility functions
+        ├── __init__.py              # Public API for the library
+        ├── main.py                  # CLI and programmatic entry point
+        ├── arg_parser.py            # Command line argument parsing
+        │
+        ├── analysis/               # Audio analysis module
+        │   ├── __init__.py
+        │   └── controller.py       # Core analysis logic
+        │
+        ├── audio/                  # Audio processing modules
+        │   ├── __init__.py
+        │   ├── audio_loader.py     # Audio file loading
+        │   ├── extractor.py        # Feature extraction 
+        │   ├── metadata.py         # File metadata extraction
+        │   ├── models.py           # Data model definitions
+        │   └── processors.py       # Frame feature extraction
+        │
+        ├── output/                 # Output handling
+        │   ├── __init__.py
+        │   ├── output_handler.py   # Result file writing
+        │   ├── modules.py          # JSON/MessagePack serialization
+        │   └── types.py            # Output type definitions
+        │
+        ├── monitor/               # Performance monitoring
+        │   ├── __init__.py
+        │   ├── monitor.py         # CPU/memory monitoring
+        │   └── loader.py          # Monitor function loading
+        │
+        └── utils/                 # Utility modules
+            ├── __init__.py
+            ├── audio.py           # Audio processing utilities
+            ├── logger.py          # Logging configuration
+            ├── path.py            # File path handling
+            ├── process.py         # Process management
+            └── constants.py       # Configuration constants
+            └── utils.py           # General utilities
 ```
 
 ## Development
