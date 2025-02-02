@@ -1,32 +1,42 @@
 """Type definitions for audio analysis output."""
 
 # typing imports
-from typing import List, TypedDict, Optional, FrozenSet
+from typing import List, TypedDict, Optional, FrozenSet, Literal
 
-
-# Define available features as a frozenset for immutability and performance
-AVAILABLE_FEATURES: FrozenSet[str] = frozenset(
-    {
-        "rms",
-        "spectral_centroid",
-        "spectral_bandwidth",
-        "spectral_flatness",
-        "spectral_rolloff",
-        "zero_crossing_rate",
-        "frequency_bands",
-        "mfcc",
-        "chroma",
+# Central source of truth for feature names (used at runtime)
+FEATURE_NAMES: tuple[str, ...] = (
+    "rms",
+    "spectral_centroid",
+    "spectral_bandwidth",
+    "spectral_flatness",
+    "spectral_rolloff",
+    "zero_crossing_rate",
+    "frequency_bands",
+    "mfcc",
+    "chroma",
     }
 )
 
-# Define which features require spectrum computation
+# For runtime, derive available features from FEATURE_NAMES
+AVAILABLE_FEATURES: FrozenSet[str] = frozenset(FEATURE_NAMES)
+
+# spectral_features = all features except rms and zero_crossing_rate
 SPECTRAL_FEATURES: FrozenSet[str] = frozenset(
-    {
-        feature
-        for feature in AVAILABLE_FEATURES
-        if feature not in {"rms", "zero_crossing_rate"}
-    }
+    {f for f in AVAILABLE_FEATURES if f not in {"rms", "zero_crossing_rate"}}
 )
+
+# Define a Literal type explicitly for type checking (unavoidable redundancy)
+FeatureName = Literal[
+    "rms",
+    "spectral_centroid",
+    "spectral_bandwidth",
+    "spectral_flatness",
+    "spectral_rolloff",
+    "zero_crossing_rate",
+    "frequency_bands",
+    "mfcc",
+    "chroma",
+]
 
 
 class FeatureConfig(TypedDict, total=False):
