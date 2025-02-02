@@ -19,6 +19,15 @@ AVAILABLE_FEATURES: FrozenSet[str] = frozenset(
     }
 )
 
+# Define which features require spectrum computation
+SPECTRAL_FEATURES: FrozenSet[str] = frozenset(
+    {
+        feature
+        for feature in AVAILABLE_FEATURES
+        if feature not in {"rms", "zero_crossing_rate"}
+    }
+)
+
 
 class FeatureConfig(TypedDict, total=False):
     """Configuration for which audio features to extract.
