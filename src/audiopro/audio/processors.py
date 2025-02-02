@@ -12,7 +12,7 @@ import essentia.standard as es
 # Local application imports
 from audiopro.utils.constants import HOP_LENGTH, FREQUENCY_BANDS
 from audiopro.utils.logger import get_logger
-from audiopro.output.types import FeatureConfig
+from audiopro.output.types import AVAILABLE_FEATURES, SPECTRAL_FEATURES, FeatureConfig
 from .models import FrameFeatures
 
 # Setup logger
@@ -52,10 +52,10 @@ def compute_frequency_bands(
 
     result: Dict[str, float] = {}
     for band_name, (low, high) in FREQUENCY_BANDS.items():
-        mask = (freqs >= low) & (freqs < high)
-        if np.any(mask):
-            # Use float32 for intermediate calculations
-            band_magnitudes = spec[mask].astype(np.float32)
+        low_idx = np.searchsorted(freqs, low, side="left")
+        high_idx = np.searchsorted(freqs, high, side="right")
+        if high_idx > low_idx:
+            band_magnitudes = spec[low_idx:high_idx].astype(np.float32)
             result[band_name] = float(np.mean(band_magnitudes))
         else:
             result[band_name] = 0.0
@@ -97,92 +97,81 @@ def process_frame(
             frame = np.pad(frame, (0, frame_length - len(frame)))
         frame = frame.astype(np.float32) * window_func
 
-        # Initialize a dictionary to store computed features
+        # Filter enabled features to only those set to True
+        enabled_features = (
+            {k for k, v in feature_config.items() if v}
+            if feature_config
+            else AVAILABLE_FEATURES
+        )
+
+        needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
         feature_values = {}
 
-        def should_compute(feature: str) -> bool:
-            """Helper to determine if a feature should be computed."""
-            # If no config is provided, compute all features
-            if feature_config is None:
-                return True
-            # If config is provided, only compute features that are explicitly set to True
-            return feature_config.get(feature, False)
-
-        # Compute spectrum only if needed for any spectral features
-        spectral_features = frozenset(
-            {
-                "spectral_centroid",
-                "spectral_bandwidth",
-                "spectral_flatness",
-                "spectral_rolloff",
-                "frequency_bands",
-                "mfcc",
-                "chroma",
-            }
-        )
-        needs_spectrum = any(should_compute(f) for f in spectral_features)
-
+        spec = None
         if needs_spectrum:
-            # Compute spectrum using Essentia's optimized implementation
             spectrum_alg = es.Spectrum()
             spec = spectrum_alg(frame)
 
             if np.all(spec == 0):
                 return frame_index, None
 
-            # Calculate features using Essentia's optimized algorithms
-            if should_compute("spectral_centroid"):
-                feature_values["spectral_centroid"] = float(
-                    es.Centroid(range=sample_rate / 2)(spec)
-                )
+            # Compute centroid once if needed by centroid or bandwidth
+            if (
+                "spectral_centroid" in enabled_features
+                or "spectral_bandwidth" in enabled_features
+            ):
+                centroid_value = float(es.Centroid(range=sample_rate / 2)(spec))
+                if "spectral_centroid" in enabled_features:
+                    feature_values["spectral_centroid"] = centroid_value
 
-            if should_compute("spectral_bandwidth"):
-                # Compute spectral bandwidth with numerical stability
-                spectrum_sum = np.sum(spec)  # Keep as float64 for accumulation
-                if spectrum_sum <= 1e-10:
-                    feature_values["spectral_bandwidth"] = 0.0
-                else:
-                    # Use float32 for intermediate calculations
-                    freq_diff = (
-                        freq_array - (feature_values.get("spectral_centroid", 0.0))
-                    ).astype(np.float32)
+            if "spectral_bandwidth" in enabled_features:
+                spectrum_sum = np.sum(spec)
+                if spectrum_sum > 1e-10:
+                    # Convert spec once to float32 and reuse for bandwidth computation
                     spec_float32 = spec.astype(np.float32)
+                    freq_diff = (freq_array - centroid_value).astype(np.float32)
                     variance = (
                         np.sum(freq_diff * freq_diff * spec_float32) / spectrum_sum
                     )
                     feature_values["spectral_bandwidth"] = float(
                         np.sqrt(np.clip(variance, 0, None))
                     )
+                else:
+                    feature_values["spectral_bandwidth"] = 0.0
 
-            if should_compute("spectral_flatness"):
-                feature_values["spectral_flatness"] = float(es.Flatness()(spec))
+            if "spectral_flatness" in enabled_features:
+                flatness_alg = es.Flatness()
+                feature_values["spectral_flatness"] = float(flatness_alg(spec))
 
-            if should_compute("spectral_rolloff"):
-                feature_values["spectral_rolloff"] = float(es.RollOff()(spec))
+            if "spectral_rolloff" in enabled_features:
+                rolloff_alg = es.RollOff()
+                feature_values["spectral_rolloff"] = float(rolloff_alg(spec))
 
-            if should_compute("mfcc"):
+            if "mfcc" in enabled_features:
                 mfcc_alg = es.MFCC(numberCoefficients=13)
                 _, mfcc_coeffs = mfcc_alg(spec)
                 feature_values["mfcc"] = mfcc_coeffs.tolist()
 
-            if should_compute("chroma"):
-                freqs, mags = es.SpectralPeaks()(spec)
+            if "chroma" in enabled_features:
+                spectral_peaks = es.SpectralPeaks()
+                freqs_peaks, mags_peaks = spectral_peaks(spec)
+                hpcp_alg = es.HPCP()
                 chroma_vector = (
-                    es.HPCP()(freqs, mags)
-                    if len(freqs) > 0
+                    hpcp_alg(freqs_peaks, mags_peaks)
+                    if len(freqs_peaks) > 0
                     else np.zeros(12, dtype=np.float32)
-                ).tolist()
-                feature_values["chroma"] = chroma_vector
+                )
+                feature_values["chroma"] = chroma_vector.tolist()
 
-            if should_compute("frequency_bands"):
+            if "frequency_bands" in enabled_features:
                 feature_values["frequency_bands"] = compute_frequency_bands(
                     spec, sample_rate, frame_length
                 )
 
-        if should_compute("rms"):
+        if "rms" in enabled_features:
             feature_values["rms"] = float(np.sqrt(np.mean(frame**2)))
 
-        if should_compute("zero_crossing_rate"):
+        if "zero_crossing_rate" in enabled_features:
             feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
 
         # Create FrameFeatures instance with only computed features
@@ -194,7 +183,6 @@ def process_frame(
         logger.error(f"Frame processing error at {frame_index}: {str(e)}")
         return frame_index, None
     finally:
-        # Clean up large arrays
-        if needs_spectrum:
+        if spec is not None:
             del spec
         del frame
