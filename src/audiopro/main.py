@@ -27,7 +27,7 @@ from .analysis.controller import analyze_audio
 
 if __name__ == "__main__":
     args = parse_arguments()
-    
+
     asyncio.run(
         analyze_audio(
             args["input_file"],
