@@ -19,7 +19,11 @@ from audiopro.audio.metadata import get_file_metadata
 
 # Output handling imports
 from audiopro.output.output_handler import write_output
-from audiopro.output.types import AudioAnalysis, FeatureConfig
+from audiopro.output.types import (
+    AudioAnalysis,
+    FeatureConfig,
+    AVAILABLE_FEATURES,
+)
 
 # Utility imports
 from audiopro.utils import optimized_convert_to_native_types, extract_rhythm
@@ -56,6 +60,10 @@ async def analyze_audio(
         ValueError: If the audio file is invalid or too short
         RuntimeError: If the analysis fails critically
         Exception: If any other unexpected error occurs
+
+    Notes:
+        The output will include an 'included_features' field that lists which features
+        were computed. An empty list indicates all available features were included.
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Audio file not found: {file_path}")
@@ -137,10 +145,25 @@ async def analyze_audio(
 
             # Compile analysis results
             logger.info("Compiling analysis results...")
+
+            # Determine included_features: empty means all features included
+            if feature_config is None:
+                included_features = []  # All features are included
+            else:
+                # Get features that are explicitly set to True
+                included_features = sorted(
+                    [
+                        feat
+                        for feat in AVAILABLE_FEATURES
+                        if feature_config.get(feat, False)
+                    ]
+                )
+
             analysis: AudioAnalysis = optimized_convert_to_native_types(
                 {
                     "metadata": metadata,
                     "tempo": tempo,
+                    "included_features": included_features,
                     "beats": beat_times,
                     "features": features,
                 }

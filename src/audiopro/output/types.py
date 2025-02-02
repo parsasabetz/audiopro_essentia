@@ -14,7 +14,6 @@ FEATURE_NAMES: tuple[str, ...] = (
     "frequency_bands",
     "mfcc",
     "chroma",
-    }
 )
 
 # For runtime, derive available features from FEATURE_NAMES
@@ -168,7 +167,19 @@ class AudioFeature(TypedDict, total=False):
 
 
 class AudioAnalysis(TypedDict):
+    """Audio analysis results containing metadata, tempo, beats, and extracted features.
+
+    Attributes:
+        metadata (Metadata): File and audio information
+        tempo (float): Detected tempo in BPM
+        beats (List[float]): Beat positions in seconds
+        features (List[AudioFeature]): List of frame-by-frame feature measurements
+        included_features (List[FeatureName]): List of feature names included in the analysis.
+                                     Empty list means all available features were computed.
+    """
+
     metadata: Metadata
     tempo: float
+    included_features: List[FeatureName]
     beats: List[float]
     features: List[AudioFeature]
