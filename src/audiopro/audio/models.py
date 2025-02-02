@@ -1,14 +1,11 @@
-# typing imports
-from typing import Dict, Optional, Union, List
-
 # Standard library imports
+from typing import Dict, Optional, Union, List
 from dataclasses import dataclass, field
 
-# Local imports for custom types
+# Local application imports
 from audiopro.output.types import FrequencyBands
 
-# Type definitions
-# FeatureValue can be either a single float, list of floats, or FrequencyBands object
+# Define a type alias for feature values
 FeatureValue = Union[float, List[float], FrequencyBands]
 
 
@@ -33,18 +30,15 @@ class FrameFeatures:
     time: float
     _computed_features: Dict[str, FeatureValue] = field(default_factory=dict)
 
-    @staticmethod
-    def _validate_time(time: float) -> None:
-        """Validate time value."""
-        if time < 0:
+    def __post_init__(self):
+        """Validate time is non-negative."""
+        if self.time < 0:
             raise ValueError("Time must be non-negative")
 
-    def __post_init__(self):
-        """Validate that time is present and positive."""
-        self._validate_time(self.time)
-
     @classmethod
-    def create(cls, time: float, **computed_features: FeatureValue) -> "FrameFeatures":
+    def create(
+        cls, time: float, **computed_features: Dict[str, FeatureValue]
+    ) -> "FrameFeatures":
         """
         Create a FrameFeatures instance with only computed features.
 
@@ -54,11 +48,7 @@ class FrameFeatures:
 
         Returns:
             FrameFeatures instance with only the computed features
-
-        Raises:
-            ValueError: If time is negative
         """
-        cls._validate_time(time)
         return cls(time=time, _computed_features=computed_features)
 
     def to_dict(self) -> Dict[str, FeatureValue]:
@@ -70,17 +60,7 @@ class FrameFeatures:
         return {"time": self.time, **self._computed_features}
 
     def __getattr__(self, name: str) -> Optional[FeatureValue]:
-        """Get a feature value, returning None if not computed.
-
-        Args:
-            name: Name of the feature to get
-
-        Returns:
-            The feature value if computed, None otherwise
-
-        Raises:
-            AttributeError: If attempting to access a private attribute
-        """
+        """Get a feature value, returning None if not computed."""
         if name.startswith("_"):
             raise AttributeError(f"No such attribute: {name}")
         return self._computed_features.get(name)
