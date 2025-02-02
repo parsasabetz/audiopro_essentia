@@ -1,3 +1,23 @@
+## 0.9.0 (2025-02-02)
+
+### Feat
+
+- **analysis/controller**: optimize thread pool usage and improve `included_features` determination
+- **audio/analysis**: add `included_features` to analysis results and update type definitions to have an insight of the output structure in the top of the file
+- **output/types**: define spectral features requiring spectrum computation
+- **output**: add asynchronous JSON and MessagePack writing functions to their own files, enhance and optimize the logic for output writing
+
+### Fix
+
+- **analysis/controller**: handle empty `feature_config` by allowing computation of all features
+- **audiopro/main**: remove unnecessary blank line in main execution block
+
+### Refactor
+
+- **output/types**: centralize feature names and improve type definitions for better clarity and performance
+- **audio/processors**: optimize feature computation by filtering enabled features and reducing spectrum calculations
+- **audio/models**: streamline time validation and enhance create method type hints
+
 ## 0.8.0 (2025-02-01)
 
 ### Feat
