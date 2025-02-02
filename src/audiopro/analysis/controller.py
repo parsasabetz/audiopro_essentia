@@ -22,7 +22,6 @@ from audiopro.output.output_handler import write_output
 from audiopro.output.types import (
     AudioAnalysis,
     FeatureConfig,
-    AVAILABLE_FEATURES,
 )
 
 # Utility imports
@@ -35,6 +34,9 @@ from audiopro.monitor.loader import load_monitor_functions
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Add constant for optimal thread pool workers
+OPTIMAL_THREAD_COUNT = min(32, (os.cpu_count() or 1) + 4)
 
 
 async def analyze_audio(
@@ -101,7 +103,8 @@ async def analyze_audio(
             logger.info("Starting audio analysis pipeline...")
             audio_data, sample_rate = load_and_preprocess_audio(file_path)
 
-            with ThreadPoolExecutor() as executor:
+            # Use optimized thread count
+            with ThreadPoolExecutor(max_workers=OPTIMAL_THREAD_COUNT) as executor:
                 logger.info("Submitting parallel processing tasks...")
 
                 # Submit tasks with logging
@@ -146,18 +149,12 @@ async def analyze_audio(
             # Compile analysis results
             logger.info("Compiling analysis results...")
 
-            # Determine included_features: empty means all features included
-            if feature_config is None:
-                included_features = []  # All features are included
-            else:
-                # Get features that are explicitly set to True
-                included_features = sorted(
-                    [
-                        feat
-                        for feat in AVAILABLE_FEATURES
-                        if feature_config.get(feat, False)
-                    ]
-                )
+            # Optimize memory usage in included_features determination
+            included_features = (
+                []
+                if feature_config is None
+                else sorted(feat for feat, enabled in feature_config.items() if enabled)
+            )
 
             analysis: AudioAnalysis = optimized_convert_to_native_types(
                 {
