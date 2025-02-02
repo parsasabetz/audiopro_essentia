@@ -103,6 +103,10 @@ async def analyze_audio(
             logger.info("Starting audio analysis pipeline...")
             audio_data, sample_rate = load_and_preprocess_audio(file_path)
 
+            # If feature_config is provided but empty/no features enabled, compute all features
+            if feature_config is not None and not any(feature_config.values()):
+                feature_config = None
+
             # Use optimized thread count
             with ThreadPoolExecutor(max_workers=OPTIMAL_THREAD_COUNT) as executor:
                 logger.info("Submitting parallel processing tasks...")
