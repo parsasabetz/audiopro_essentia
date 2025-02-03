@@ -96,8 +96,6 @@ async def analyze_audio(
         # Convert FrameFeatures to dict before appending
         features.append(feature.to_dict())
 
-    start_time_offset = time_range.get("start", 0.0) if time_range else 0.0
-
     with graceful_shutdown() as stop_flag:
         try:
             if not skip_monitoring and monitor_cpu_usage:
@@ -109,8 +107,12 @@ async def analyze_audio(
                 monitoring_thread.start()
 
             logger.info("Starting audio analysis pipeline...")
-            audio_data, sample_rate, loader_metadata = load_and_preprocess_audio(
-                file_path, time_range=time_range
+            audio_data, sample_rate, loader_metadata, duration = (
+                load_and_preprocess_audio(file_path, time_range=time_range)
+            )
+
+            start_sample = (
+                int(time_range.get("start", 0) * sample_rate) if time_range else 0
             )
 
             # If feature_config is provided but empty/no features enabled, compute all features
@@ -135,7 +137,7 @@ async def analyze_audio(
                     loader_metadata["channels"],
                     on_feature,
                     feature_config,
-                    start_time=start_time_offset,  # Pass start time to feature extraction
+                    start_sample=start_sample,  # Pass start sample to feature extraction
                 )
 
                 logger.info("Analyzing rhythm patterns...")
@@ -190,7 +192,13 @@ async def analyze_audio(
 
             analysis: AudioAnalysis = optimized_convert_to_native_types(
                 {
-                    "metadata": metadata,
+                    "metadata": {
+                        **metadata,
+                        "audio_info": {
+                            **metadata["audio_info"],
+                            "duration_seconds": duration,
+                        },
+                    },
                     "tempo": tempo,
                     "included_features": included_features,
                     "beats": beat_times,

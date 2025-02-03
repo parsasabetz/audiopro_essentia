@@ -63,7 +63,7 @@ def extract_features(
     channels: int,
     on_feature: Optional[Callable[[FrameFeatures], None]] = None,
     feature_config: Optional[FeatureConfig] = None,
-    start_time: float = 0.0  # Add start_time parameter with default value
+    start_sample: int = 0,  # Add start_sample parameter with default value
 ) -> List[Dict]:
     """
     Extracts features from the given audio data by processing it in frames.
@@ -79,10 +79,10 @@ def extract_features(
         on_feature: Optional callback for immediate feature processing
         feature_config: Optional configuration specifying which features to compute.
                       If None, all features will be computed.
-        start_time: Start time in seconds to offset the frame time (default: 0.0)
+        start_sample: Start sample to offset the frame time (default: 0)
 
     Returns:
-        List of features in native Python types if no on_feature callback is provided; otherwise, an empty list
+        List of features in native Python types if no `on_feature` callback is provided; otherwise, an empty list
 
     Raises:
         ValueError: If the audio data is too short or invalid
@@ -135,7 +135,7 @@ def extract_features(
         window_func=window_func,
         freq_array=freq_array,
         feature_config=feature_config,
-        start_time=start_time  # Pass start time to process_frame
+        start_sample=start_sample,  # Pass start sample to process_frame
     )
 
     # Optimal resource allocation
