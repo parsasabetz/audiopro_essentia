@@ -7,23 +7,21 @@ import numpy as np
 
 def optimized_convert_to_native_types(data: Any) -> Union[float, int, list, dict, Any]:
     """Convert numpy types to native Python types using vectorized operations"""
-    # Fast path for most common types
     if data is None or isinstance(data, (bool, int, float, str)):
         return data
 
-    # Numpy scalar types (most common after basic types)
-    if isinstance(data, (np.float32, np.float64)):
-        return float(data)
-    if isinstance(data, (np.int32, np.int64)):
-        return int(data)
-    if isinstance(data, np.bool_):
-        return bool(data)
+    # Use np.issubdtype to capture any numpy scalar
+    if isinstance(data, np.generic):
+        if np.issubdtype(data.dtype, np.floating):
+            return float(data)
+        if np.issubdtype(data.dtype, np.integer):
+            return int(data)
+        if np.issubdtype(data.dtype, np.bool_):
+            return bool(data)
 
-    # Numpy arrays (handled in one go)
     if isinstance(data, np.ndarray):
         return data.tolist()
 
-    # Collections (using generators for memory efficiency)
     if isinstance(data, dict):
         return {k: optimized_convert_to_native_types(v) for k, v in data.items()}
     if isinstance(data, list):
