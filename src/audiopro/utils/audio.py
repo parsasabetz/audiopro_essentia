@@ -71,6 +71,16 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
         # Get extractor instance safely
         extractor = RhythmExtractorSingleton().extractor
         tempo, beat_positions, _, _, _ = extractor(audio)
+
+        # Recalculate tempo based on median beat interval if possible
+        if len(beat_positions) > 1:
+            from numpy import diff, median # pylint: disable=import-outside-toplevel
+
+            intervals = diff(beat_positions)
+            median_interval = median(intervals)
+            if median_interval > 0:
+                tempo = 60.0 / median_interval
+
         return tempo, beat_positions
     except Exception as e:
         logger.error(f"Rhythm extraction failed: {str(e)}")
