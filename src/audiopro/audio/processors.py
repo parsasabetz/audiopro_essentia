@@ -87,10 +87,15 @@ def process_frame(
         Tuple of frame index and extracted features, or None if processing failed
     """
     frame_index, frame = frame_data
+    spec = None  # Initialize spec at the top level
 
     try:
         if frame.size == 0 or np.all(np.isnan(frame)):
             return frame_index, None
+
+        # Convert multi-channel to mono by averaging channels if needed
+        if len(frame.shape) > 1:
+            frame = np.mean(frame, axis=1)
 
         # Apply window function and pad if necessary
         if len(frame) < frame_length:
@@ -107,7 +112,6 @@ def process_frame(
         needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
         feature_values = {}
 
-        spec = None
         if needs_spectrum:
             spectrum_alg = es.Spectrum()
             spec = spectrum_alg(frame)
