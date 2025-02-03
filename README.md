@@ -116,6 +116,7 @@ await analyze_audio(
 ### Feature Selection
 You can selectively enable/disable any of these features:
 - `rms`: Root Mean Square energy value
+- `volume`: Volume level in decibels (dBFS), computed as `20 * log10(rms)`
 - `spectral_centroid`: Weighted mean of frequencies
 - `spectral_bandwidth`: Variance of frequencies around the centroid
 - `spectral_flatness`: Measure of how noise-like the signal is
@@ -159,6 +160,23 @@ feature_config: FeatureConfig = {
     "spectral_flatness": False,
     "spectral_rolloff": False
 }
+
+# Compute only volume levels
+feature_config: FeatureConfig = {
+    "volume": True
+}
+
+# Compute volume and RMS together
+feature_config: FeatureConfig = {
+    "volume": True,
+    "rms": True
+}
+
+# Compute everything except volume
+feature_config: FeatureConfig = {
+    "volume": False,
+    # other features set to True...
+}
 ```
 
 ### Output Structure
@@ -195,8 +213,8 @@ feature_config: FeatureConfig = {
     "features": [
         {
             "time": float,  # Time in milliseconds (always included)
-            # Optional features:
             "rms": float,   # Optional
+            "volume": float,  # Optional, in dBFS (decibels relative to full scale)
             "spectral_centroid": float,  # Optional
             "spectral_bandwidth": float,  # Optional
             "spectral_flatness": float,  # Optional

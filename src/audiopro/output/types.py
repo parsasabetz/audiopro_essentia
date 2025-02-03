@@ -6,6 +6,7 @@ from typing import List, TypedDict, Optional, FrozenSet, Literal
 # Central source of truth for feature names (used at runtime)
 FEATURE_NAMES: tuple[str, ...] = (
     "rms",
+    "volume",
     "spectral_centroid",
     "spectral_bandwidth",
     "spectral_flatness",
@@ -19,14 +20,15 @@ FEATURE_NAMES: tuple[str, ...] = (
 # For runtime, derive available features from FEATURE_NAMES
 AVAILABLE_FEATURES: FrozenSet[str] = frozenset(FEATURE_NAMES)
 
-# spectral_features = all features except rms and zero_crossing_rate
+# spectral_features = all features except rms, zero_crossing_rate, and volume
 SPECTRAL_FEATURES: FrozenSet[str] = frozenset(
-    {f for f in AVAILABLE_FEATURES if f not in {"rms", "zero_crossing_rate"}}
+    {f for f in AVAILABLE_FEATURES if f not in {"rms", "zero_crossing_rate", "volume"}}
 )
 
 # Define a Literal type explicitly for type checking (unavoidable redundancy)
 FeatureName = Literal[
     "rms",
+    "volume",
     "spectral_centroid",
     "spectral_bandwidth",
     "spectral_flatness",
@@ -46,6 +48,7 @@ class FeatureConfig(TypedDict, total=False):
 
     Available features:
         - rms: Root Mean Square energy value
+        - volume: Volume in decibels (`20 * log10(rms)`)
         - spectral_centroid: Weighted mean of frequencies
         - spectral_bandwidth: Variance of frequencies around the centroid
         - spectral_flatness: Measure of how noise-like the signal is
@@ -57,6 +60,7 @@ class FeatureConfig(TypedDict, total=False):
     """
 
     rms: bool
+    volume: bool
     spectral_centroid: bool
     spectral_bandwidth: bool
     spectral_flatness: bool
@@ -146,6 +150,7 @@ class AudioFeature(TypedDict, total=False):
     Attributes:
         time (float): Time position in milliseconds for the current frame.
         rms (Optional[float]): Root Mean Square energy value.
+        volume (Optional[float]): Volume in decibels (20 * log10(rms)).
         spectral_centroid (Optional[float]): Weighted mean of frequencies present in the signal.
         spectral_bandwidth (Optional[float]): Variance of frequencies around the spectral centroid.
         spectral_flatness (Optional[float]): Measure of how noise-like the signal is (0=pure tone, 1=noise).
@@ -158,6 +163,7 @@ class AudioFeature(TypedDict, total=False):
 
     time: float  # Time is always required
     rms: Optional[float]
+    volume: Optional[float]
     spectral_centroid: Optional[float]
     spectral_bandwidth: Optional[float]
     spectral_flatness: Optional[float]

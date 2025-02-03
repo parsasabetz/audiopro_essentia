@@ -101,6 +101,24 @@ def process_frame(
             frame = np.pad(frame, (0, frame_length - len(frame)))
         frame = frame.astype(np.float32) * window_func
 
+        # Initialize features dictionary and compute RMS once for features
+        feature_values = {}
+        eps = np.finfo(float).eps
+        rms_value = float(np.sqrt(np.mean(frame**2)))
+
+        # Determine enabled features and include "volume" by default if no config is provided
+        if feature_config is None:
+            enabled_features = AVAILABLE_FEATURES | {"volume"}
+        else:
+            enabled_features = {k for k, v in feature_config.items() if v}
+
+        if "volume" in enabled_features:
+            feature_values["volume"] = 20 * np.log10(rms_value + eps)
+
+        # Compute rms if requested
+        if "rms" in enabled_features:
+            feature_values["rms"] = rms_value
+
         # Filter enabled features to only those set to True
         enabled_features = (
             {k for k, v in feature_config.items() if v}
@@ -109,7 +127,6 @@ def process_frame(
         )
 
         needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
-        feature_values = {}
 
         if needs_spectrum:
             spectrum_alg = es.Spectrum()
@@ -170,9 +187,6 @@ def process_frame(
                 feature_values["frequency_bands"] = compute_frequency_bands(
                     spec, sample_rate, frame_length
                 )
-
-        if "rms" in enabled_features:
-            feature_values["rms"] = float(np.sqrt(np.mean(frame**2)))
 
         if "zero_crossing_rate" in enabled_features:
             feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
