@@ -98,27 +98,21 @@ def extract_features(
     if audio_data.dtype != np.float32:
         audio_data = audio_data.astype(np.float32)
 
-    # Precise frame calculation
-    total_samples = len(audio_data)
-    max_start_idx = total_samples - FRAME_LENGTH
-    total_frames = (max_start_idx + HOP_LENGTH) // HOP_LENGTH
-
     # Reshape interleaved multi-channel audio if needed
     if audio_data.ndim == 1 and channels > 1:
-        n_samples = audio_data.shape[0] // channels
-        new_length = n_samples * channels  # trim any extra samples
-        audio_data = audio_data[:new_length].reshape((n_samples, channels))
+        samples_per_channel = audio_data.shape[0] // channels
+        audio_data = audio_data[: samples_per_channel * channels].reshape(
+            (samples_per_channel, channels)
+        )
 
     # Correctly compute duration (samples per channel / sample_rate)
-    duration = (
-        (audio_data.shape[0] / sample_rate)
-        if audio_data.ndim > 1
-        else (audio_data.shape[0] / sample_rate)
-    )
-
-    logger.info(f"Audio length: {total_samples} samples")
+    duration = audio_data.shape[0] / sample_rate
+    logger.info(f"Audio length: {audio_data.shape[0]} samples")
     logger.info(f"Audio duration: {duration:.2f} seconds")
-    logger.info(f"Expected number of frames: {total_frames}")
+
+    # Calculate expected frames based on hop length
+    n_frames = 1 + (audio_data.shape[0] - FRAME_LENGTH) // HOP_LENGTH
+    logger.info(f"Expected number of frames: {n_frames}")
 
     # Log which features will be computed
     if feature_config is not None:
@@ -143,22 +137,21 @@ def extract_features(
 
     # Optimal resource allocation
     MAX_WORKERS = min(
-        calculate_max_workers(total_samples, FRAME_LENGTH, HOP_LENGTH), mp.cpu_count()
+        calculate_max_workers(audio_data.shape[0], FRAME_LENGTH, HOP_LENGTH),
+        mp.cpu_count(),
     )
-    CHUNK_SIZE = max(
-        1, min(100, total_frames // (MAX_WORKERS * 4))
-    )  # Adaptive chunk size
+    CHUNK_SIZE = max(1, min(100, n_frames // (MAX_WORKERS * 4)))  # Adaptive chunk size
 
     processed_frames = 0
     valid_features: List[Dict] = [] if on_feature is None else []
     error_count = 0
-    MAX_ERRORS = total_frames // 2.5  # Allow up to 2.5% error rate
+    MAX_ERRORS = n_frames // 2.5  # Allow up to 2.5% error rate
 
     try:
         # Process batches with a streaming generator using minimal memory footprint
         with mp.Pool(processes=MAX_WORKERS) as pool:
             frames_iter = create_frame_generator(
-                audio_data, total_samples, total_frames
+                audio_data, audio_data.shape[0], n_frames
             )
 
             # Process batches until no frames remain
@@ -184,7 +177,7 @@ def extract_features(
                         # Periodic progress updates
                         if processed_frames % 1000 == 0:
                             logger.info(
-                                f"Processed {processed_frames}/{total_frames} frames"
+                                f"Processed {processed_frames}/{n_frames} frames"
                             )
 
                 except (mp.TimeoutError, mp.ProcessError) as e:
@@ -205,7 +198,7 @@ def extract_features(
         del window_func, freq_array
         gc.collect()
 
-    completion_ratio = processed_frames / total_frames
+    completion_ratio = processed_frames / n_frames
     if completion_ratio < 0.97:  # Allow for up to 3% frame loss
         logger.warning(
             f"Only processed {completion_ratio * 100:.1f}% of expected frames"
