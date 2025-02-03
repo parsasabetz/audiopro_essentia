@@ -168,14 +168,16 @@ feature_config: FeatureConfig = {
         "file_info": {
             "filename": str,
             "format": str,
+            "codec": str,
             "size_mb": float,
             "created_date": str,  # ISO format
             "mime_type": str,
-            "sha256_hash": str
+            "md5_hash": str
         },
         "audio_info": {
             "duration_seconds": float,
             "sample_rate": int,
+            "bit_rate": int,
             "channels": int,
             "peak_amplitude": float,
             "rms_amplitude": float,
@@ -193,14 +195,13 @@ feature_config: FeatureConfig = {
     "features": [
         {
             "time": float,  # Time in milliseconds (always included)
-            # Only requested features will be included:
+            # Optional features:
             "rms": float,   # Optional
             "spectral_centroid": float,  # Optional
             "spectral_bandwidth": float,  # Optional
             "spectral_flatness": float,  # Optional
             "spectral_rolloff": float,  # Optional
             "zero_crossing_rate": float,  # Optional
-            "mfcc": [float],  # Optional, 13 coefficients
             "frequency_bands": {  # Optional
                 "sub_bass": float,    # 20-60 Hz
                 "bass": float,        # 60-250 Hz
@@ -209,6 +210,7 @@ feature_config: FeatureConfig = {
                 "upper_mid": float,   # 2000-5000 Hz
                 "treble": float       # 5000-20000 Hz
             },
+            "mfcc": [float],  # Optional, 13 coefficients
             "chroma": [float]  # Optional, 12 values representing pitch classes
         }
     ]
