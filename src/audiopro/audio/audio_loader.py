@@ -60,10 +60,10 @@ def load_and_preprocess_audio(file_path: str) -> tuple:
         "sample_rate": sample_rate,
     }
 
-    # Ensure audio_data has an even length
+    # In-place even-length adjustment to minimize extra copy creation
     if len(audio_data) % 2 != 0:
-        audio_data = np.append(audio_data, 0.0).astype(np.float32)
-        logger.info("Appended zero to make audio_data length even for FFT.")
+        audio_data = np.pad(audio_data, (0, 1), mode='constant').astype(np.float32)
+        logger.info("Padded audio_data to even length for FFT.")
 
     # Combine empty/silent check with signal energy check to reduce redundancy
     signal_energy = np.sum(audio_data**2)
