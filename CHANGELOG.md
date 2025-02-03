@@ -1,3 +1,31 @@
+## 0.10.0 (2025-02-04)
+
+### Feat
+
+- **audio**: add duration return value to audio loading function for enhanced audio metadata
+- **audio**: add time range support for audio analysis and processing efficiently without writing any files
+- **audio/processors**: add `volume` feature calculation and update feature configuration and docs
+- **audio/extractor**: improve frame calculation and logging for audio feature extraction and fix frame dropping bugs
+- **analysis/extractor**: add channel handling for audio feature extraction and duration calculation to calculate the duration of the audio correctly
+- **audio/processors**: add multi-channel to mono conversion in frame processing for proper array shape handling
+- **utils/audio**: add logging for rhythm extraction and handle multi-channel audio conversion
+- **analysis/controller**: enhance audio loading with additional metadata and refactor `get_file_metadata` parameters
+
+### Fix
+
+- **audio/utils**: recalculate tempo based on median beat interval for improved accuracy in rhythm extraction
+- **controller**: recalculate tempo based on median beat interval for improved rhythm analysis, fix the wrong tempo value bug
+- **audio_loader**: enable MD5 computation during audio file loading
+- **audio_loader**: optimize even-length adjustment for audio data using in-place padding
+- **types**: update time attribute to reflect milliseconds instead of seconds
+
+### Refactor
+
+- **audio**: replace `start_time` parameter with `start_sample` for improved audio frame processing
+- **utils**: enhance documentation for `optimized_convert_to_native_types` function, detailing input types and conversion process
+- **audio/processors**: streamline frame processing by simplifying mono conversion and removing explicit deletion
+- **utils**: optimize conversion of numpy types to native Python types using vectorized operations
+
 ## 0.9.0 (2025-02-02)
 
 ### Feat
