@@ -144,7 +144,7 @@ class AudioFeature(TypedDict, total=False):
     Features will only be present if they were requested in the FeatureConfig.
 
     Attributes:
-        time (float): Time position in seconds for the current frame.
+        time (float): Time position in milliseconds for the current frame.
         rms (Optional[float]): Root Mean Square energy value.
         spectral_centroid (Optional[float]): Weighted mean of frequencies present in the signal.
         spectral_bandwidth (Optional[float]): Variance of frequencies around the spectral centroid.
