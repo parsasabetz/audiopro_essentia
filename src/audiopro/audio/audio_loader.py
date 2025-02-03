@@ -34,6 +34,7 @@ def load_and_preprocess_audio(
         tuple: A tuple containing:
             - audio_data (numpy.ndarray): Preprocessed audio samples as a numpy array
             - sample_rate (int): Sample rate of the audio in Hz
+            - duration (float): Duration of the trimmed audio in seconds
 
     Raises:
         ValueError: If the audio is:
@@ -64,6 +65,8 @@ def load_and_preprocess_audio(
         logger.info(
             f"Sliced audio from {start_sample/sample_rate:.2f}s to {end_sample/sample_rate:.2f}s"
         )
+
+    duration = len(audio_data) / sample_rate
 
     # Compute file stats once and pack extra metadata
     file_stats = os.stat(file_path)
@@ -100,4 +103,4 @@ def load_and_preprocess_audio(
         )
 
     logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
-    return audio_data, sample_rate, loader_metadata
+    return audio_data, sample_rate, loader_metadata, duration
