@@ -42,7 +42,7 @@ def load_and_preprocess_audio(file_path: str) -> tuple:
     """
     logger.info("Loading audio file: %s", file_path)
     audio_data, sample_rate, channels, md5, bit_rate, codec = es.AudioLoader(
-        filename=file_path
+        filename=file_path, computeMD5=True
     )()
 
     # Compute file stats once and pack extra metadata
