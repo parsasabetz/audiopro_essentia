@@ -9,6 +9,7 @@ from .types import (
     AudioInfo,
     FrequencyBands,
     QualityMetrics,
+    LoaderMetadata,
 )
 from .modules import _write_json, _write_msgpack
 
@@ -23,4 +24,5 @@ __all__ = [
     "QualityMetrics",
     "_write_json",
     "_write_msgpack",
+    "LoaderMetadata",
 ]

@@ -1,15 +1,21 @@
-# Third-party imports
-import essentia.standard as es
+# Standard library imports
+import os
+import mimetypes
+from pathlib import Path
+
+# Third-party scientific/audio processing libraries
 import numpy as np
+import essentia.standard as es
 
-# Local imports
+# Local application imports
 from audiopro.utils.logger import get_logger
+from audiopro.output.types import LoaderMetadata
 
-# Configure logging
+# Configure logging for this module
 logger = get_logger(__name__)
 
 
-def load_and_preprocess_audio(file_path: str):
+def load_and_preprocess_audio(file_path: str) -> tuple:
     """Loads and preprocesses an audio file for analysis.
 
     This function loads an audio file, converts it to mono, and performs several
@@ -35,10 +41,24 @@ def load_and_preprocess_audio(file_path: str):
         - Minimum audio length required is 100ms
     """
     logger.info("Loading audio file: %s", file_path)
-    loader = es.MonoLoader(filename=file_path)
+    audio_data, sample_rate, channels, md5, bit_rate, codec = es.AudioLoader(
+        filename=file_path
+    )()
 
-    audio_data = loader()
-    sample_rate = int(loader.paramValue("sampleRate"))
+    # Compute file stats once and pack extra metadata
+    file_stats = os.stat(file_path)
+    loader_metadata: LoaderMetadata = {  # annotated with LoaderMetadata type
+        "filename": Path(file_path).name,
+        "format": Path(file_path).suffix[1:],
+        "size_mb": file_stats.st_size / (1024**2),
+        "created_date": file_stats.st_ctime,
+        "mime_type": mimetypes.guess_type(file_path)[0] or "unknown",
+        "md5_hash": md5,
+        "bit_rate": bit_rate,
+        "codec": codec,
+        "channels": channels,
+        "sample_rate": sample_rate,
+    }
 
     # Ensure audio_data has an even length
     if len(audio_data) % 2 != 0:
@@ -60,4 +80,4 @@ def load_and_preprocess_audio(file_path: str):
         )
 
     logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
-    return audio_data, sample_rate
+    return audio_data, sample_rate, loader_metadata

@@ -105,15 +105,17 @@ class QualityMetrics(TypedDict):
 class FileInfo(TypedDict):
     filename: str
     format: str
+    codec: str
     size_mb: float
     created_date: str  # ISO format
     mime_type: str
-    sha256_hash: str
+    md5_hash: str
 
 
 class AudioInfo(TypedDict):
     duration_seconds: float
     sample_rate: int
+    bit_rate: int
     channels: int
     peak_amplitude: float
     rms_amplitude: float
@@ -183,3 +185,33 @@ class AudioAnalysis(TypedDict):
     included_features: List[FeatureName]
     beats: List[float]
     features: List[AudioFeature]
+
+
+class LoaderMetadata(TypedDict):
+    """Type specification for audio file metadata.
+
+    A TypedDict class that defines metadata attributes for loaded audio files.
+
+    Attributes:
+        filename (str): Name of the audio file.
+        format (str): Audio file format (e.g., 'wav', 'mp3').
+        size_mb (float): File size in megabytes.
+        created_date (float): File creation timestamp.
+        mime_type (str): MIME type of the audio file.
+        md5_hash (str): MD5 hash of file contents.
+        bit_rate (int): Audio bit rate in bits per second.
+        codec (str): Audio codec used for encoding.
+        channels (int): Number of audio channels.
+        sample_rate (int): Sample rate in Hz.
+    """
+
+    filename: str
+    format: str
+    size_mb: float
+    created_date: float  # timestamp
+    mime_type: str
+    md5_hash: str
+    bit_rate: int
+    codec: str
+    channels: int
+    sample_rate: int

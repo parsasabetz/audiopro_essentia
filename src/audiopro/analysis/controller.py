@@ -101,7 +101,9 @@ async def analyze_audio(
                 monitoring_thread.start()
 
             logger.info("Starting audio analysis pipeline...")
-            audio_data, sample_rate = load_and_preprocess_audio(file_path)
+            audio_data, sample_rate, loader_metadata = load_and_preprocess_audio(
+                file_path
+            )
 
             # If feature_config is provided but empty/no features enabled, compute all features
             if feature_config is not None and not any(feature_config.values()):
@@ -114,7 +116,7 @@ async def analyze_audio(
                 # Submit tasks with logging
                 logger.info("Extracting metadata...")
                 metadata_future = executor.submit(
-                    get_file_metadata, file_path, audio_data, sample_rate
+                    get_file_metadata, audio_data, loader_metadata
                 )
 
                 logger.info("Extracting audio features...")
