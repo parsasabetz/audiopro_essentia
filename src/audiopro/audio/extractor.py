@@ -60,6 +60,7 @@ def create_frame_generator(
 def extract_features(
     audio_data: NDArray[np.float32],
     sample_rate: int,
+    channels: int,
     on_feature: Optional[Callable[[FrameFeatures], None]] = None,
     feature_config: Optional[FeatureConfig] = None,
 ) -> List[Dict]:
@@ -73,6 +74,7 @@ def extract_features(
     Args:
         audio_data: The audio data as a numpy array
         sample_rate: The sample rate of the audio
+        channels: Number of audio channels in the data
         on_feature: Optional callback for immediate feature processing
         feature_config: Optional configuration specifying which features to compute.
                       If None, all features will be computed.
@@ -100,10 +102,22 @@ def extract_features(
     total_samples = len(audio_data)
     max_start_idx = total_samples - FRAME_LENGTH
     total_frames = (max_start_idx + HOP_LENGTH) // HOP_LENGTH
-    expected_duration = total_samples / sample_rate
+
+    # Reshape interleaved multi-channel audio if needed
+    if audio_data.ndim == 1 and channels > 1:
+        n_samples = audio_data.shape[0] // channels
+        new_length = n_samples * channels  # trim any extra samples
+        audio_data = audio_data[:new_length].reshape((n_samples, channels))
+
+    # Correctly compute duration (samples per channel / sample_rate)
+    duration = (
+        (audio_data.shape[0] / sample_rate)
+        if audio_data.ndim > 1
+        else (audio_data.shape[0] / sample_rate)
+    )
 
     logger.info(f"Audio length: {total_samples} samples")
-    logger.info(f"Audio duration: {expected_duration:.2f} seconds")
+    logger.info(f"Audio duration: {duration:.2f} seconds")
     logger.info(f"Expected number of frames: {total_frames}")
 
     # Log which features will be computed

@@ -124,6 +124,7 @@ async def analyze_audio(
                     extract_features,
                     audio_data,
                     sample_rate,
+                    loader_metadata["channels"],
                     on_feature,
                     feature_config,
                 )

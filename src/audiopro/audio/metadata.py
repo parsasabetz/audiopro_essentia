@@ -69,7 +69,7 @@ def get_file_metadata(
             "md5_hash": loader_metadata["md5_hash"],
         },
         "audio_info": {
-            "duration_seconds": len(audio_data) / sample_rate,
+            "duration_seconds": audio_data.shape[0] / (sample_rate * loader_metadata["channels"]),
             "sample_rate": sample_rate,
             "bit_rate": loader_metadata["bit_rate"],
             "channels": loader_metadata["channels"],
