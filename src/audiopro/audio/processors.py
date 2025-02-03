@@ -69,6 +69,7 @@ def process_frame(
     window_func: NDArray[np.float32],
     freq_array: NDArray[np.float32],
     feature_config: Optional[FeatureConfig] = None,
+    start_time: float = 0.0,  # Add start_time parameter with default value
 ) -> Tuple[int, Optional[FrameFeatures]]:
     """
     Process a single audio frame to extract various spectral features.
@@ -82,6 +83,7 @@ def process_frame(
         feature_config: Optional configuration specifying which features to compute.
                       If None, all features will be computed.
                       If provided, only features set to True will be computed.
+        start_time: Start time in seconds to offset the frame time (default: 0.0)
 
     Returns:
         Tuple of frame index and extracted features, or None if processing failed
@@ -192,7 +194,7 @@ def process_frame(
             feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
 
         # Create FrameFeatures instance with only computed features
-        time_ms = (frame_index * HOP_LENGTH) / sample_rate * 1000
+        time_ms = ((frame_index * HOP_LENGTH) / sample_rate + start_time) * 1000
         result = FrameFeatures.create(time=time_ms, **feature_values)
         return frame_index, result
 

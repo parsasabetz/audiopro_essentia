@@ -19,9 +19,12 @@ from audiopro.audio.metadata import get_file_metadata
 
 # Output handling imports
 from audiopro.output.output_handler import write_output
+
+# local type imports
 from audiopro.output.types import (
     AudioAnalysis,
     FeatureConfig,
+    TimeRange,
 )
 
 # Utility imports
@@ -45,6 +48,7 @@ async def analyze_audio(
     output_format: str = "msgpack",
     skip_monitoring: bool = False,
     feature_config: Optional[FeatureConfig] = None,
+    time_range: Optional[TimeRange] = None,
 ) -> None:
     """
     Analyze an audio file and extract features.
@@ -56,6 +60,8 @@ async def analyze_audio(
         skip_monitoring: Whether to skip performance monitoring
         feature_config: Optional configuration specifying which features to compute.
                       If None, all features will be computed.
+        time_range: Optional time range to analyze (in seconds).
+                   If provided, only audio within this range will be analyzed.
 
     Raises:
         FileNotFoundError: If the input file doesn't exist
@@ -90,6 +96,8 @@ async def analyze_audio(
         # Convert FrameFeatures to dict before appending
         features.append(feature.to_dict())
 
+    start_time_offset = time_range.get("start", 0.0) if time_range else 0.0
+
     with graceful_shutdown() as stop_flag:
         try:
             if not skip_monitoring and monitor_cpu_usage:
@@ -102,7 +110,7 @@ async def analyze_audio(
 
             logger.info("Starting audio analysis pipeline...")
             audio_data, sample_rate, loader_metadata = load_and_preprocess_audio(
-                file_path
+                file_path, time_range=time_range
             )
 
             # If feature_config is provided but empty/no features enabled, compute all features
@@ -127,6 +135,7 @@ async def analyze_audio(
                     loader_metadata["channels"],
                     on_feature,
                     feature_config,
+                    start_time=start_time_offset,  # Pass start time to feature extraction
                 )
 
                 logger.info("Analyzing rhythm patterns...")
@@ -144,7 +153,7 @@ async def analyze_audio(
                 # Recalculate tempo based on median beat interval if possible
                 if len(beat_positions) > 1:
                     # ensure numpy is imported in this context
-                    from numpy import ( # pylint: disable=import-outside-toplevel
+                    from numpy import (  # pylint: disable=import-outside-toplevel
                         diff,
                         median,
                     )

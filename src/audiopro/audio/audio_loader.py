@@ -2,6 +2,7 @@
 import os
 import mimetypes
 from pathlib import Path
+from typing import Optional
 
 # Third-party scientific/audio processing libraries
 import numpy as np
@@ -9,13 +10,15 @@ import essentia.standard as es
 
 # Local application imports
 from audiopro.utils.logger import get_logger
-from audiopro.output.types import LoaderMetadata
+from audiopro.output.types import LoaderMetadata, TimeRange
 
 # Configure logging for this module
 logger = get_logger(__name__)
 
 
-def load_and_preprocess_audio(file_path: str) -> tuple:
+def load_and_preprocess_audio(
+    file_path: str, time_range: Optional[TimeRange] = None
+) -> tuple:
     """Loads and preprocesses an audio file for analysis.
 
     This function loads an audio file, converts it to mono, and performs several
@@ -23,6 +26,9 @@ def load_and_preprocess_audio(file_path: str) -> tuple:
 
     Args:
         file_path (str): Path to the audio file to be loaded.
+        time_range (Optional[TimeRange]): Time range as a dictionary with 'start' and 'end' keys.
+            If 'end' is None, processes until the end of file.
+            If 'start' is None, processes from the beginning.
 
     Returns:
         tuple: A tuple containing:
@@ -45,6 +51,20 @@ def load_and_preprocess_audio(file_path: str) -> tuple:
         filename=file_path, computeMD5=True
     )()
 
+    if time_range:
+        start_sample = int(time_range.get("start", 0) * sample_rate)
+        end_sample = (
+            int(time_range["end"] * sample_rate)
+            if "end" in time_range
+            else len(audio_data)
+        )
+        end_sample = min(end_sample, len(audio_data))
+
+        audio_data = audio_data[start_sample:end_sample]
+        logger.info(
+            f"Sliced audio from {start_sample/sample_rate:.2f}s to {end_sample/sample_rate:.2f}s"
+        )
+
     # Compute file stats once and pack extra metadata
     file_stats = os.stat(file_path)
     loader_metadata: LoaderMetadata = {  # annotated with LoaderMetadata type
@@ -62,7 +82,7 @@ def load_and_preprocess_audio(file_path: str) -> tuple:
 
     # In-place even-length adjustment to minimize extra copy creation
     if len(audio_data) % 2 != 0:
-        audio_data = np.pad(audio_data, (0, 1), mode='constant').astype(np.float32)
+        audio_data = np.pad(audio_data, (0, 1), mode="constant").astype(np.float32)
         logger.info("Padded audio_data to even length for FFT.")
 
     # Combine empty/silent check with signal energy check to reduce redundancy

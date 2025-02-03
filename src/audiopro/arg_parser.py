@@ -1,7 +1,8 @@
-# Standard imports
+# typing imports
+from typing import Dict, Any
+
 # Standard library imports
 import argparse
-from typing import Dict, Any
 
 # Local application imports
 from audiopro.output.types import (
@@ -25,6 +26,7 @@ def parse_arguments() -> Dict[str, Any]:
             - format (OutputFormat): Output format, either 'msgpack' (default) or 'json'
             - skip_monitoring (bool): Flag to disable performance monitoring if True
             - feature_config (Optional[FeatureConfig]): Configuration for which features to compute
+            - time_range (Optional[TimeRange]): Time range for processing
 
     Example:
         args = parse_arguments()
@@ -70,7 +72,27 @@ def parse_arguments() -> Dict[str, Any]:
         help="Select specific features to compute. If not specified, all features will be computed.",
     )
 
+    parser.add_argument(
+        "--start",
+        type=float,
+        default=0.0,
+        help="Start time in seconds (default: 0.0)",
+    )
+
+    parser.add_argument(
+        "--end",
+        type=float,
+        help="End time in seconds (default: entire file)",
+    )
+
     args = parser.parse_args()
+
+    # Create TimeRange dict if either start or end is specified
+    time_range = {}
+    if args.start > 0:
+        time_range["start"] = args.start
+    if args.end is not None:
+        time_range["end"] = args.end
 
     # Convert args to dictionary with proper typing
     result = {
@@ -79,6 +101,7 @@ def parse_arguments() -> Dict[str, Any]:
         "format": args.format,  # Already lowercase and validated as OutputFormat
         "skip_monitoring": args.skip_monitoring,
         "feature_config": create_feature_config(args.features),
+        "time_range": time_range if time_range else None,
     }
 
     return result

@@ -3,6 +3,17 @@
 # typing imports
 from typing import List, TypedDict, Optional, FrozenSet, Literal
 
+# Define a TypedDict for time range (start_time, end_time)
+class TimeRange(TypedDict, total=False):
+    """Time range specification for audio analysis.
+    
+    Attributes:
+        start: Start time in seconds
+        end: Optional end time in seconds. If not provided, processes until the end.
+    """
+    start: float
+    end: Optional[float]
+
 # Central source of truth for feature names (used at runtime)
 FEATURE_NAMES: tuple[str, ...] = (
     "rms",
