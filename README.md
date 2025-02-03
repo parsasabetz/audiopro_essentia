@@ -46,6 +46,20 @@ python -m audiopro input.wav output --skip-monitoring
 ✓ python -m audiopro input.wav output --format json
 ```
 
+### Analyze a specific range of an audio file
+
+To analyze only a specific range of the input audio file, use the `--start` and `--end` arguments:
+
+```sh
+python -m audiopro input.wav output --start 10.0 --end 20.0
+```
+
+This will process the audio from 10 seconds to 20 seconds. Omitting `--end` will process until the end of the file:
+
+```sh
+python -m audiopro input.wav output --start 10.0
+```
+
 ### Programmatic Usage
 ```python
 import asyncio
