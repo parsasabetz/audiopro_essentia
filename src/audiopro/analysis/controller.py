@@ -141,10 +141,26 @@ async def analyze_audio(
                 logger.info("Feature extraction completed")
 
                 tempo, beat_positions = rhythm_future.result()
-                logger.info("Rhythm analysis completed")
+                # Recalculate tempo based on median beat interval if possible
+                if len(beat_positions) > 1:
+                    # ensure numpy is imported in this context
+                    from numpy import ( # pylint: disable=import-outside-toplevel
+                        diff,
+                        median,
+                    )
 
+                    intervals = diff(beat_positions)
+                    median_interval = median(intervals)
+                    if median_interval > 0:
+                        tempo = 60.0 / median_interval
+
+                # Compute beat_times from beat_positions
                 beat_times = beat_positions.tolist()
-                logger.info("Found %d beats, tempo: %.2f BPM", len(beat_times), tempo)
+                logger.info(
+                    "Rhythm analysis completed. Found %d beats, tempo: %.2f BPM",
+                    len(beat_times),
+                    tempo,
+                )
 
             # Check if beats are detected to avoid empty frequency sets
             if not beat_times:
