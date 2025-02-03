@@ -5,13 +5,19 @@ from typing import Tuple
 import essentia.standard as es
 import numpy as np
 
+# local imports
+from audiopro.utils.logger import get_logger
+
+# setup logger
+logger = get_logger(__name__)
+
 
 class RhythmExtractorSingleton:
     """
     RhythmExtractorSingleton is a thread-safe singleton class for rhythm extraction.
 
-    This class ensures that only one instance of the rhythm extractor is created and used throughout the application. 
-    It uses the Essentia library's RhythmExtractor2013 with the "multifeature" method for rhythm extraction.
+    This class ensures that only one instance of the rhythm extractor is created and used throughout the application.
+    It uses the Essentia library's `RhythmExtractor2013` with the "multifeature" method for rhythm extraction.
 
     Attributes:
         _instance (RhythmExtractorSingleton): The singleton instance of the class.
@@ -38,7 +44,7 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
     audio (np.ndarray): A numpy array containing the audio signal.
 
     Returns:
-    Tuple[float, np.ndarray]: A tuple containing the tempo (in beats per minute) 
+    Tuple[float, np.ndarray]: A tuple containing the tempo (in beats per minute)
                               and an array of beat positions.
 
     Raises:
@@ -54,11 +60,20 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
         raise ValueError("Audio data is empty")
 
     try:
+        # Convert to mono if multi-channel
+        if len(audio.shape) > 1:
+            logger.info("Converting multi-channel audio to mono for rhythm extraction")
+            audio = np.mean(audio, axis=1)
+
+        # Ensure we have a 1D array
+        audio = np.ascontiguousarray(audio.flatten())
+
         # Get extractor instance safely
         extractor = RhythmExtractorSingleton().extractor
         tempo, beat_positions, _, _, _ = extractor(audio)
         return tempo, beat_positions
     except Exception as e:
+        logger.error(f"Rhythm extraction failed: {str(e)}")
         raise RuntimeError(f"Failed to extract rhythm: {str(e)}") from e
 
 
