@@ -87,14 +87,13 @@ def process_frame(
         Tuple of frame index and extracted features, or None if processing failed
     """
     frame_index, frame = frame_data
-    spec = None  # Initialize spec at the top level
 
     try:
         if frame.size == 0 or np.all(np.isnan(frame)):
             return frame_index, None
 
-        # Convert multi-channel to mono by averaging channels if needed
-        if len(frame.shape) > 1:
+        # Convert to mono once if multi-channel
+        if frame.ndim > 1:
             frame = np.mean(frame, axis=1)
 
         # Apply window function and pad if necessary
@@ -187,6 +186,5 @@ def process_frame(
         logger.error(f"Frame processing error at {frame_index}: {str(e)}")
         return frame_index, None
     finally:
-        if spec is not None:
-            del spec
-        del frame
+        # Rely on garbage collection rather than explicit deletion.
+        pass
