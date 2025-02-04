@@ -1,12 +1,10 @@
-# typing imports
-from typing import Dict
-
 # Standard library imports
 import logging
 import sys
 
 # Third-party imports
 from functools import lru_cache
+from weakref import WeakValueDictionary
 
 
 class LoggerSingleton:
@@ -30,7 +28,7 @@ class LoggerSingleton:
             Cleans up logging resources by closing the handler and clearing the loggers dictionary.
     """
 
-    _loggers: Dict[str, logging.Logger] = {}
+    _loggers = WeakValueDictionary()  # Allow unused loggers to be garbage collected
     _formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     _handler = None
 
