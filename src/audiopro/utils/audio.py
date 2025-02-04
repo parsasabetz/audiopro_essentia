@@ -1,5 +1,6 @@
 # typing imports
 from typing import Tuple
+from functools import lru_cache
 
 # third-party imports
 import essentia.standard as es
@@ -74,7 +75,7 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
 
         # Recalculate tempo based on median beat interval if possible
         if len(beat_positions) > 1:
-            from numpy import diff, median # pylint: disable=import-outside-toplevel
+            from numpy import diff, median  # pylint: disable=import-outside-toplevel
 
             intervals = diff(beat_positions)
             median_interval = median(intervals)
@@ -87,39 +88,40 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
         raise RuntimeError(f"Failed to extract rhythm: {str(e)}") from e
 
 
+@lru_cache(maxsize=32)
 def compute_spectral_bandwidth(
     spectrum: np.ndarray, freqs: np.ndarray, centroid: float
 ) -> float:
     """
-    Manually compute the spectral bandwidth.
+    Compute the spectral bandwidth of a given spectrum.
+
+    Spectral bandwidth is a measure of the width of the spectrum around its centroid.
+
     Parameters:
         spectrum (np.ndarray): The amplitude spectrum of the signal.
         freqs (np.ndarray): The corresponding frequencies of the spectrum.
-        centroid (float): The spectral centroid of the signal.
+        centroid (float): The spectral centroid of the spectrum.
 
     Returns:
-        float: The computed spectral bandwidth.
+        float: The spectral bandwidth of the spectrum.
 
     Raises:
         TypeError: If spectrum or freqs are not numpy arrays.
         ValueError: If spectrum and freqs do not have the same size.
     """
-    # Fast array check
-    if not (hasattr(spectrum, "dtype") and hasattr(freqs, "dtype")):
+
+    if not (isinstance(spectrum, np.ndarray) and isinstance(freqs, np.ndarray)):
         raise TypeError("Spectrum and frequencies must be numpy arrays")
 
-    # Use view instead of copy for efficiency
     if spectrum.size != freqs.size:
         raise ValueError("Spectrum and frequencies must have the same size")
 
-    # Cache sum to avoid recalculation
+    # Use einsum for better performance
     spectrum_sum = np.sum(spectrum)
-    if spectrum_sum <= 1e-10:  # More numerically stable threshold
+    if spectrum_sum <= 1e-10:
         return 0.0
 
-    # Vectorized computation without intermediate arrays
     freq_diff = freqs - centroid
-    variance = np.sum(freq_diff * freq_diff * spectrum) / spectrum_sum
+    variance = np.einsum("i,i,i->", freq_diff, freq_diff, spectrum) / spectrum_sum
 
-    # Use np.sqrt with clip for better numerical stability
     return float(np.sqrt(np.clip(variance, 0, None)))
