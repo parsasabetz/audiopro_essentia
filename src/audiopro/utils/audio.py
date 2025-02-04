@@ -61,13 +61,19 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
         raise ValueError("Audio data is empty")
 
     try:
-        # Convert to mono if multi-channel
+        # More efficient memory handling
         if len(audio.shape) > 1:
-            logger.info("Converting multi-channel audio to mono for rhythm extraction")
-            audio = np.mean(audio, axis=1)
+            # Use out parameter to avoid extra allocation
+            audio = np.mean(audio, axis=1, dtype=np.float32, out=None)
+        else:
+            # Only convert if necessary
+            if audio.dtype != np.float32:
+                audio = audio.astype(np.float32, copy=False)
 
-        # Ensure we have a 1D array
-        audio = np.ascontiguousarray(audio.flatten())
+        # Use reshape(-1) instead of flatten() to avoid copy
+        audio = audio.reshape(-1)
+        if not audio.flags.c_contiguous:
+            audio = np.ascontiguousarray(audio)
 
         # Get extractor instance safely
         extractor = RhythmExtractorSingleton().extractor
@@ -116,12 +122,12 @@ def compute_spectral_bandwidth(
     if spectrum.size != freqs.size:
         raise ValueError("Spectrum and frequencies must have the same size")
 
-    # Use einsum for better performance
-    spectrum_sum = np.sum(spectrum)
-    if spectrum_sum <= 1e-10:
+    # Pre-calculate condition to avoid unnecessary computation
+    if np.sum(spectrum) <= 1e-10:
         return 0.0
 
+    # Use direct broadcasting for better memory efficiency
     freq_diff = freqs - centroid
-    variance = np.einsum("i,i,i->", freq_diff, freq_diff, spectrum) / spectrum_sum
+    variance = (freq_diff * freq_diff * spectrum).sum() / spectrum.sum()
 
     return float(np.sqrt(np.clip(variance, 0, None)))
