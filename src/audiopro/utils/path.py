@@ -8,14 +8,18 @@ from pathlib import Path
 
 # Define supported output formats
 OutputFormat = Literal["json", "msgpack"]
-SUPPORTED_FORMATS: set[str] = {"json", "msgpack"}
-FORMAT_EXTENSIONS = {
-    "json": ".json",
-    "msgpack": ".msgpack"
-}
+
+# Use frozenset for immutable constant
+SUPPORTED_FORMATS: frozenset[str] = frozenset({"json", "msgpack"})
+
+# Use tuple-based mapping for better memory and performance
+FORMAT_EXTENSIONS = (("json", ".json"), ("msgpack", ".msgpack"))
+FORMAT_EXTENSIONS_MAP = dict(FORMAT_EXTENSIONS)
 
 
-def validate_and_process_output_path(output_path: str, output_format: OutputFormat) -> str:
+def validate_and_process_output_path(
+    output_path: str, output_format: OutputFormat
+) -> str:
     """
     Validate output path and ensure it doesn't contain an extension.
     Append the appropriate extension based on the format.
@@ -31,7 +35,7 @@ def validate_and_process_output_path(output_path: str, output_format: OutputForm
         ValueError: If the output path contains an extension
     """
     path = Path(output_path)
-    
+
     # Check if path has an extension
     if path.suffix:
         raise ValueError(
@@ -41,4 +45,4 @@ def validate_and_process_output_path(output_path: str, output_format: OutputForm
         )
 
     # Add the appropriate extension based on format (already validated)
-    return str(path) + FORMAT_EXTENSIONS[output_format]
+    return f"{path}{FORMAT_EXTENSIONS_MAP[output_format]}"
