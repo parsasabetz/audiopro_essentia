@@ -33,7 +33,7 @@ def get_file_metadata(
                 - filename (str): The name of the file.
                 - format (str): The file format (extension).
                 - size_mb (float): The size of the file in megabytes.
-                - created_date (str): The creation date of the file in ISO format.
+                - created_date (str): The creation date of the file in Unix timestamp format.
                 - mime_type (str): The MIME type of the file.
                 - sha256_hash (str): The SHA-256 hash of the file.
             - audio_info:
