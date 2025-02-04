@@ -88,6 +88,11 @@ def extract_features(
         ValueError: If the audio data is too short or invalid
         RuntimeError: If processing fails critically
     """
+    # Add early return if no features enabled
+    if feature_config is not None and not any(feature_config.values()):
+        logger.warning("No features enabled in configuration")
+        return []
+
     if not isinstance(audio_data, np.ndarray):
         raise ValueError("Audio data must be a numpy array")
 
@@ -143,7 +148,8 @@ def extract_features(
         calculate_max_workers(audio_data.shape[0], FRAME_LENGTH, HOP_LENGTH),
         mp.cpu_count(),
     )
-    CHUNK_SIZE = max(1, min(100, n_frames // (MAX_WORKERS * 4)))  # Adaptive chunk size
+    # Optimize chunk size calculation
+    CHUNK_SIZE = max(1, min(BATCH_SIZE // MAX_WORKERS, n_frames // (MAX_WORKERS * 2)))
 
     processed_frames = 0
     valid_features: List[Dict] = [] if on_feature is None else []
