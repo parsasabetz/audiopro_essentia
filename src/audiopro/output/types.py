@@ -1,42 +1,31 @@
 """Type definitions for audio analysis output."""
 
 # typing imports
-from typing import List, TypedDict, Optional, FrozenSet, Literal
+from typing import List, TypedDict, Optional, Literal
 
-# Define a TypedDict for time range (start_time, end_time)
-class TimeRange(TypedDict, total=False):
-    """Time range specification for audio analysis.
-    
-    Attributes:
-        start: Start time in seconds
-        end: Optional end time in seconds. If not provided, processes until the end.
-    """
-    start: float
-    end: Optional[float]
+# Consolidate feature definitions into a single source of truth
+FEATURE_DEFINITIONS = {
+    "rms": "Root Mean Square energy value",
+    "volume": "Volume in decibels (20 * log10(rms))",
+    "spectral_centroid": "Weighted mean of frequencies",
+    "spectral_bandwidth": "Variance of frequencies around the centroid",
+    "spectral_flatness": "Measure of how noise-like the signal is",
+    "spectral_rolloff": "Frequency below which most spectral energy exists",
+    "zero_crossing_rate": "Rate of signal polarity changes",
+    "frequency_bands": "Energy in different frequency bands",
+    "mfcc": "Mel-frequency cepstral coefficients (13 values)",
+    "chroma": "Distribution of spectral energy across pitch classes",
+}
 
-# Central source of truth for feature names (used at runtime)
-FEATURE_NAMES: tuple[str, ...] = (
-    "rms",
-    "volume",
-    "spectral_centroid",
-    "spectral_bandwidth",
-    "spectral_flatness",
-    "spectral_rolloff",
-    "zero_crossing_rate",
-    "frequency_bands",
-    "mfcc",
-    "chroma",
+FEATURE_NAMES = tuple(FEATURE_DEFINITIONS.keys())
+
+AVAILABLE_FEATURES = frozenset(FEATURE_NAMES)
+
+SPECTRAL_FEATURES = frozenset(
+    f for f in AVAILABLE_FEATURES if f not in {"rms", "zero_crossing_rate", "volume"}
 )
 
-# For runtime, derive available features from FEATURE_NAMES
-AVAILABLE_FEATURES: FrozenSet[str] = frozenset(FEATURE_NAMES)
-
-# spectral_features = all features except rms, zero_crossing_rate, and volume
-SPECTRAL_FEATURES: FrozenSet[str] = frozenset(
-    {f for f in AVAILABLE_FEATURES if f not in {"rms", "zero_crossing_rate", "volume"}}
-)
-
-# Define a Literal type explicitly for type checking (unavoidable redundancy)
+# Create Literal type from feature names
 FeatureName = Literal[
     "rms",
     "volume",
@@ -51,35 +40,23 @@ FeatureName = Literal[
 ]
 
 
-class FeatureConfig(TypedDict, total=False):
-    """Configuration for which audio features to extract.
+# Define a TypedDict for time range (start_time, end_time)
+class TimeRange(TypedDict, total=False):
+    """Time range specification for audio analysis.
 
-    Set a field to True to include that feature in the analysis.
-    Omitted fields or fields set to False will be excluded from computation and output.
-
-    Available features:
-        - rms: Root Mean Square energy value
-        - volume: Volume in decibels (`20 * log10(rms)`)
-        - spectral_centroid: Weighted mean of frequencies
-        - spectral_bandwidth: Variance of frequencies around the centroid
-        - spectral_flatness: Measure of how noise-like the signal is
-        - spectral_rolloff: Frequency below which most spectral energy exists
-        - zero_crossing_rate: Rate of signal polarity changes
-        - frequency_bands: Energy in different frequency bands
-        - mfcc: Mel-frequency cepstral coefficients (13 values)
-        - chroma: Distribution of spectral energy across pitch classes
+    Attributes:
+        start: Start time in seconds
+        end: Optional end time in seconds. If not provided, processes until the end.
     """
 
-    rms: bool
-    volume: bool
-    spectral_centroid: bool
-    spectral_bandwidth: bool
-    spectral_flatness: bool
-    spectral_rolloff: bool
-    zero_crossing_rate: bool
-    frequency_bands: bool
-    mfcc: bool
-    chroma: bool
+    start: float
+    end: Optional[float]
+
+
+class FeatureConfig(TypedDict, total=False):
+    """Configuration for which audio features to extract."""
+
+    __annotations__ = {feature: bool for feature in FEATURE_NAMES}
 
 
 def create_feature_config(
