@@ -2,6 +2,7 @@
 import signal
 import threading
 from contextlib import contextmanager
+from functools import lru_cache
 
 # Import custom logger
 from audiopro.utils import get_logger
@@ -46,6 +47,7 @@ def graceful_shutdown():
             signal.signal(sig, original_handler)
 
 
+@lru_cache(maxsize=128)
 def calculate_max_workers(
     audio_data_length: int, frame_length: int, hop_length: int
 ) -> int:
