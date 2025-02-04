@@ -3,7 +3,6 @@ Module for handling audio file metadata extraction.
 """
 
 # Standard library imports
-import datetime
 import numpy as np
 
 # Local typing imports
@@ -50,38 +49,29 @@ def get_file_metadata(
                     - potentially_clipped_samples (int): The number of potentially clipped samples.
     """
 
-    # Single pass calculations for audio metrics
+    # Pre-compute values used multiple times
+    eps = np.finfo(float).eps
     abs_audio = np.abs(audio_data)
+    mean_audio = np.mean(audio_data)
+    sample_rate = loader_metadata["sample_rate"]
+    channels = loader_metadata["channels"]
+
+    # Compute audio metrics efficiently
     peak_amplitude = float(np.max(abs_audio))
     rms_value = float(np.sqrt(np.mean(audio_data**2)))
-    sample_rate = loader_metadata["sample_rate"]
 
     return {
-        "file_info": {
-            "filename": loader_metadata["filename"],
-            "format": loader_metadata["format"],
-            "codec": loader_metadata["codec"],
-            "size_mb": loader_metadata["size_mb"],
-            "created_date": datetime.datetime.fromtimestamp(
-                loader_metadata["created_date"]
-            ).isoformat(),
-            "mime_type": loader_metadata["mime_type"],
-            "md5_hash": loader_metadata["md5_hash"],
-        },
+        "file_info": loader_metadata,  # Simply use the loader metadata directly
         "audio_info": {
-            "duration_seconds": audio_data.shape[0] / (sample_rate * loader_metadata["channels"]),
+            "duration_seconds": audio_data.shape[0] / (sample_rate * channels),
             "sample_rate": sample_rate,
-            "bit_rate": loader_metadata["bit_rate"],
-            "channels": loader_metadata["channels"],
+            "channels": channels,
             "peak_amplitude": peak_amplitude,
             "rms_amplitude": rms_value,
             "dynamic_range_db": 20
-            * np.log10(
-                (peak_amplitude + np.finfo(float).eps)
-                / (rms_value + np.finfo(float).eps)
-            ),
+            * np.log10((peak_amplitude + eps) / (rms_value + eps)),
             "quality_metrics": {
-                "dc_offset": float(np.mean(audio_data)),
+                "dc_offset": float(mean_audio),
                 "silence_ratio": float(np.mean(abs_audio < 0.001)),
                 "potentially_clipped_samples": int(np.sum(abs_audio > 0.99)),
             },
