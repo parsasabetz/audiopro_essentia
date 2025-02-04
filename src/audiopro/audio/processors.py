@@ -10,7 +10,10 @@ from numpy.typing import NDArray
 import essentia.standard as es
 
 # Local application imports
-from audiopro.utils.constants import HOP_LENGTH, FREQUENCY_BANDS
+from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
+    HOP_LENGTH,
+    FREQUENCY_BANDS,
+)
 from audiopro.utils.logger import get_logger
 from audiopro.output.types import AVAILABLE_FEATURES, SPECTRAL_FEATURES, FeatureConfig
 from .models import FrameFeatures
@@ -60,6 +63,22 @@ def compute_frequency_bands(
         else:
             result[band_name] = 0.0
     return result
+
+
+# Add cached algorithm creators
+@lru_cache(maxsize=1)
+def get_spectrum_algorithm():
+    return es.Spectrum()
+
+
+@lru_cache(maxsize=1)
+def get_mfcc_algorithm():
+    return es.MFCC(numberCoefficients=13)
+
+
+@lru_cache(maxsize=1)
+def get_hpcp_algorithm():
+    return es.HPCP()
 
 
 def process_frame(
@@ -131,7 +150,7 @@ def process_frame(
         needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
 
         if needs_spectrum:
-            spectrum_alg = es.Spectrum()
+            spectrum_alg = get_spectrum_algorithm()
             spec = spectrum_alg(frame)
 
             if np.all(spec == 0):
@@ -170,14 +189,14 @@ def process_frame(
                 feature_values["spectral_rolloff"] = float(rolloff_alg(spec))
 
             if "mfcc" in enabled_features:
-                mfcc_alg = es.MFCC(numberCoefficients=13)
+                mfcc_alg = get_mfcc_algorithm()
                 _, mfcc_coeffs = mfcc_alg(spec)
                 feature_values["mfcc"] = mfcc_coeffs.tolist()
 
             if "chroma" in enabled_features:
                 spectral_peaks = es.SpectralPeaks()
                 freqs_peaks, mags_peaks = spectral_peaks(spec)
-                hpcp_alg = es.HPCP()
+                hpcp_alg = get_hpcp_algorithm()
                 chroma_vector = (
                     hpcp_alg(freqs_peaks, mags_peaks)
                     if len(freqs_peaks) > 0
