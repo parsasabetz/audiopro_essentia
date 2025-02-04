@@ -202,7 +202,7 @@ feature_config: FeatureConfig = {
             "format": str,
             "codec": str,
             "size_mb": float,
-            "created_date": str,  # ISO format
+            "created_date": str,  # Unix timestamp
             "mime_type": str,
             "md5_hash": str
         },
