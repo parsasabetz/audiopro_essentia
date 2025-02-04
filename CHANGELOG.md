@@ -1,3 +1,21 @@
+## 0.11.0 (2025-02-04)
+
+### Feat
+
+- **audio**: optimize spectral bandwidth computation with LRU caching and einsum
+- **process**: add LRU cache to `calculate_max_workers` for improved performance
+
+### Refactor
+
+- **processors**: implement cached algorithm creators for spectrum, MFCC, and HPCP to enhance performance
+- **extractor**: add early return for disabled features and optimize chunk size calculation
+- **metadata**: streamline audio metadata extraction by simplifying `file_info` and optimizing metric calculations
+- **output**: consolidate feature definitions and improve configuration structure
+- **audio**: enhance memory efficiency in rhythm extraction and spectral bandwidth computation
+- **constants**: encapsulate audio constants in a frozen dataclass for better organization and memory efficiency
+- **path**: replace set with frozenset for supported formats and use tuple-based mapping for format extensions
+- **logger**: replace dictionary with `WeakValueDictionary` for better memory management of loggers
+
 ## 0.10.0 (2025-02-04)
 
 ### Feat
