@@ -10,14 +10,18 @@ from numpy.typing import NDArray
 import essentia.standard as es
 
 # Local application imports
+from audiopro.audio.models import FrameFeatures
 from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
     HOP_LENGTH,
     FREQUENCY_BANDS,
 )
 from audiopro.utils.logger import get_logger
 from audiopro.output.types import AVAILABLE_FEATURES, SPECTRAL_FEATURES, FeatureConfig
-from .models import FrameFeatures
-from .exceptions import FeatureExtractionError, AudioValidationError
+from audiopro.errors.exceptions import (
+    FeatureExtractionError,
+    AudioValidationError,
+    SpectralFeatureError,
+)
 
 # Setup logger
 logger = get_logger(__name__)
@@ -95,10 +99,13 @@ def process_frame(
     frame_index, frame = frame_data
 
     try:
-        # Better input validation
+        # Validation
         if not isinstance(frame, np.ndarray):
             raise AudioValidationError(
-                f"Frame data must be numpy array, got {type(frame)}"
+                message="Invalid frame data type",
+                parameter="frame",
+                expected="numpy.ndarray",
+                actual=type(frame).__name__,
             )
         if frame.size == 0:
             raise FeatureExtractionError("Empty frame data")
@@ -145,14 +152,18 @@ def process_frame(
 
         needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
 
-        # More specific error handling for feature computation
+        # Spectral processing with better error context
         try:
             if needs_spectrum:
                 spectrum_alg = get_spectrum_algorithm()
                 spec = spectrum_alg(frame)
 
                 if np.all(spec == 0):
-                    raise FeatureExtractionError("Zero spectrum detected")
+                    raise SpectralFeatureError(
+                        message="Zero spectrum detected",
+                        feature_name="spectrum",
+                        frame_index=frame_index,
+                    )
 
                 # Compute centroid once if needed by centroid or bandwidth
                 if (
@@ -208,8 +219,11 @@ def process_frame(
                     )
 
         except Exception as e:
-            raise FeatureExtractionError(
-                f"Spectral feature computation failed: {str(e)}"
+            raise SpectralFeatureError(
+                message="Spectral processing failed",
+                feature_name="spectrum",
+                frame_index=frame_index,
+                original_error=str(e),
             ) from e
 
         if "zero_crossing_rate" in enabled_features:
@@ -220,19 +234,14 @@ def process_frame(
         result = FrameFeatures.create(time=time_ms, **feature_values)
         return frame_index, result
 
-    except (AudioValidationError, FeatureExtractionError) as e:
-        logger.warning(f"Frame {frame_index} skipped: {str(e)}")
+    except AudioValidationError as e:
+        logger.warning(f"Frame {frame_index} validation failed: {e}")
         return frame_index, None
-    except np.linalg.LinAlgError as e:
-        logger.error(f"Linear algebra error in frame {frame_index}: {str(e)}")
+    except (FeatureExtractionError, SpectralFeatureError) as e:
+        logger.error(f"Frame {frame_index} processing error: {e}")
         return frame_index, None
     except (ValueError, TypeError) as e:
-        logger.error(f"Frame {frame_index} processing error: {str(e)}")
-        return frame_index, None
-    except (RuntimeError, MemoryError) as e:
-        logger.exception(
-            f"Unexpected runtime or memory error in frame {frame_index}: {str(e)}"
-        )
+        logger.exception(f"Unexpected error in frame {frame_index}: {e}")
         return frame_index, None
     finally:
         # Rely on garbage collection rather than explicit deletion.
