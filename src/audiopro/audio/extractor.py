@@ -25,9 +25,13 @@ from audiopro.utils import (
     BATCH_SIZE,
 )
 from audiopro.output.types import FeatureConfig
+from audiopro.errors.exceptions import (
+    AudioProcessingError,
+    ExtractionPipelineError,
+    AudioValidationError,
+)
 from .processors import process_frame
 from .models import FrameFeatures
-from .exceptions import ExtractionPipelineError, AudioValidationError
 
 # Set up logger
 logger = get_logger()
@@ -90,11 +94,17 @@ def extract_features(
         RuntimeError: If processing fails critically
         ExtractionPipelineError: If there is a critical error in the extraction pipeline
         AudioValidationError: If the audio data is invalid
+        AudioProcessingError: If an unexpected processing error occurs
     """
     try:
         # Input validation with more specific errors
         if not isinstance(audio_data, np.ndarray):
-            raise AudioValidationError("Audio data must be a numpy array")
+            raise AudioValidationError(
+                message="Invalid audio data type",
+                parameter="audio_data",
+                expected="numpy.ndarray",
+                actual=type(audio_data).__name__,
+            )
         if not np.isfinite(audio_data).all():
             raise AudioValidationError("Audio data contains infinite or NaN values")
         if sample_rate <= 0:
@@ -180,9 +190,11 @@ def extract_features(
                     lambda: list(islice(frames_iter, BATCH_SIZE)), []
                 ):
                     if error_count > MAX_ERRORS:
-                        failed_percent = (error_count / n_frames) * 100
                         raise ExtractionPipelineError(
-                            f"Excessive processing errors: {error_count} failures ({failed_percent:.1f}% of frames)"
+                            message="Excessive processing errors",
+                            error_count=error_count,
+                            total_frames=n_frames,
+                            error_rate=f"{(error_count/n_frames)*100:.2f}%",
                         )
 
                     try:
@@ -229,17 +241,21 @@ def extract_features(
         except ExtractionPipelineError:
             raise
         except Exception as e:
-            logger.exception("Critical pipeline error")
-            raise ExtractionPipelineError("Feature extraction pipeline failed") from e
+            raise ExtractionPipelineError(
+                message="Pipeline execution failed",
+                error_count=error_count,
+                total_frames=n_frames,
+                original_error=str(e),
+            ) from e
 
-    except AudioValidationError as e:
-        logger.error(f"Audio validation failed: {str(e)}")
+    except AudioValidationError:
         raise
     except ExtractionPipelineError:
         raise
     except Exception as e:
-        logger.exception("Unexpected error in feature extraction")
-        raise ExtractionPipelineError("Unexpected extraction error") from e
+        raise AudioProcessingError(
+            message="Unexpected processing error", details={"error": str(e)}
+        ) from e
     finally:
         # Clean up
         del window_func, freq_array
