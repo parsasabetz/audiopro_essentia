@@ -45,7 +45,7 @@ async def _write_msgpack(data: AudioAnalysis, file_path: str) -> None:
     Returns:
         None
     """
-    packed_data = msgpack.packb(data, use_bin_type=True, strict_types=True)
+    packed_data = msgpack.packb(data, use_bin_type=True)
 
     async with aiofiles.open(file_path, "wb") as f:
         await f.write(packed_data)
