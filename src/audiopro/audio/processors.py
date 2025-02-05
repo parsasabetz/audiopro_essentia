@@ -17,6 +17,7 @@ from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
 from audiopro.utils.logger import get_logger
 from audiopro.output.types import AVAILABLE_FEATURES, SPECTRAL_FEATURES, FeatureConfig
 from .models import FrameFeatures
+from .exceptions import FeatureExtractionError, AudioValidationError
 
 # Setup logger
 logger = get_logger(__name__)
@@ -88,30 +89,25 @@ def process_frame(
     window_func: NDArray[np.float32],
     freq_array: NDArray[np.float32],
     feature_config: Optional[FeatureConfig] = None,
-    start_sample: int = 0,  # Add start_sample parameter with default value
+    start_sample: int = 0,
 ) -> Tuple[int, Optional[FrameFeatures]]:
-    """
-    Process a single audio frame to extract various spectral features.
-
-    Args:
-        frame_data: Tuple of (frame_index, frame_data)
-        sample_rate: The sample rate of the audio signal
-        frame_length: The length of the frame to be processed
-        window_func: The window function to be applied to the frame
-        freq_array: Array of frequency values for FFT bins
-        feature_config: Optional configuration specifying which features to compute.
-                      If None, all features will be computed.
-                      If provided, only features set to True will be computed.
-        start_sample: Start sample to offset the frame time (default: 0)
-
-    Returns:
-        Tuple of frame index and extracted features, or None if processing failed
-    """
+    """Process a single frame of audio data."""
     frame_index, frame = frame_data
 
     try:
-        if frame.size == 0 or np.all(np.isnan(frame)):
-            return frame_index, None
+        # Better input validation
+        if not isinstance(frame, np.ndarray):
+            raise AudioValidationError(
+                f"Frame data must be numpy array, got {type(frame)}"
+            )
+        if frame.size == 0:
+            raise FeatureExtractionError("Empty frame data")
+        if np.all(np.isnan(frame)):
+            raise FeatureExtractionError("Frame contains only NaN values")
+        if not np.isfinite(frame).all():
+            raise FeatureExtractionError("Frame contains infinite values")
+        if frame.dtype != np.float32:
+            frame = frame.astype(np.float32)
 
         # Convert to mono once if multi-channel
         if frame.ndim > 1:
@@ -149,65 +145,72 @@ def process_frame(
 
         needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
 
-        if needs_spectrum:
-            spectrum_alg = get_spectrum_algorithm()
-            spec = spectrum_alg(frame)
+        # More specific error handling for feature computation
+        try:
+            if needs_spectrum:
+                spectrum_alg = get_spectrum_algorithm()
+                spec = spectrum_alg(frame)
 
-            if np.all(spec == 0):
-                return frame_index, None
+                if np.all(spec == 0):
+                    raise FeatureExtractionError("Zero spectrum detected")
 
-            # Compute centroid once if needed by centroid or bandwidth
-            if (
-                "spectral_centroid" in enabled_features
-                or "spectral_bandwidth" in enabled_features
-            ):
-                centroid_value = float(es.Centroid(range=sample_rate / 2)(spec))
-                if "spectral_centroid" in enabled_features:
-                    feature_values["spectral_centroid"] = centroid_value
+                # Compute centroid once if needed by centroid or bandwidth
+                if (
+                    "spectral_centroid" in enabled_features
+                    or "spectral_bandwidth" in enabled_features
+                ):
+                    centroid_value = float(es.Centroid(range=sample_rate / 2)(spec))
+                    if "spectral_centroid" in enabled_features:
+                        feature_values["spectral_centroid"] = centroid_value
 
-            if "spectral_bandwidth" in enabled_features:
-                spectrum_sum = np.sum(spec)
-                if spectrum_sum > 1e-10:
-                    # Convert spec once to float32 and reuse for bandwidth computation
-                    spec_float32 = spec.astype(np.float32)
-                    freq_diff = (freq_array - centroid_value).astype(np.float32)
-                    variance = (
-                        np.sum(freq_diff * freq_diff * spec_float32) / spectrum_sum
+                if "spectral_bandwidth" in enabled_features:
+                    spectrum_sum = np.sum(spec)
+                    if spectrum_sum > 1e-10:
+                        # Convert spec once to float32 and reuse for bandwidth computation
+                        spec_float32 = spec.astype(np.float32)
+                        freq_diff = (freq_array - centroid_value).astype(np.float32)
+                        variance = (
+                            np.sum(freq_diff * freq_diff * spec_float32) / spectrum_sum
+                        )
+                        feature_values["spectral_bandwidth"] = float(
+                            np.sqrt(np.clip(variance, 0, None))
+                        )
+                    else:
+                        feature_values["spectral_bandwidth"] = 0.0
+
+                if "spectral_flatness" in enabled_features:
+                    flatness_alg = es.Flatness()
+                    feature_values["spectral_flatness"] = float(flatness_alg(spec))
+
+                if "spectral_rolloff" in enabled_features:
+                    rolloff_alg = es.RollOff()
+                    feature_values["spectral_rolloff"] = float(rolloff_alg(spec))
+
+                if "mfcc" in enabled_features:
+                    mfcc_alg = get_mfcc_algorithm()
+                    _, mfcc_coeffs = mfcc_alg(spec)
+                    feature_values["mfcc"] = mfcc_coeffs.tolist()
+
+                if "chroma" in enabled_features:
+                    spectral_peaks = es.SpectralPeaks()
+                    freqs_peaks, mags_peaks = spectral_peaks(spec)
+                    hpcp_alg = get_hpcp_algorithm()
+                    chroma_vector = (
+                        hpcp_alg(freqs_peaks, mags_peaks)
+                        if len(freqs_peaks) > 0
+                        else np.zeros(12, dtype=np.float32)
                     )
-                    feature_values["spectral_bandwidth"] = float(
-                        np.sqrt(np.clip(variance, 0, None))
+                    feature_values["chroma"] = chroma_vector.tolist()
+
+                if "frequency_bands" in enabled_features:
+                    feature_values["frequency_bands"] = compute_frequency_bands(
+                        spec, sample_rate, frame_length
                     )
-                else:
-                    feature_values["spectral_bandwidth"] = 0.0
 
-            if "spectral_flatness" in enabled_features:
-                flatness_alg = es.Flatness()
-                feature_values["spectral_flatness"] = float(flatness_alg(spec))
-
-            if "spectral_rolloff" in enabled_features:
-                rolloff_alg = es.RollOff()
-                feature_values["spectral_rolloff"] = float(rolloff_alg(spec))
-
-            if "mfcc" in enabled_features:
-                mfcc_alg = get_mfcc_algorithm()
-                _, mfcc_coeffs = mfcc_alg(spec)
-                feature_values["mfcc"] = mfcc_coeffs.tolist()
-
-            if "chroma" in enabled_features:
-                spectral_peaks = es.SpectralPeaks()
-                freqs_peaks, mags_peaks = spectral_peaks(spec)
-                hpcp_alg = get_hpcp_algorithm()
-                chroma_vector = (
-                    hpcp_alg(freqs_peaks, mags_peaks)
-                    if len(freqs_peaks) > 0
-                    else np.zeros(12, dtype=np.float32)
-                )
-                feature_values["chroma"] = chroma_vector.tolist()
-
-            if "frequency_bands" in enabled_features:
-                feature_values["frequency_bands"] = compute_frequency_bands(
-                    spec, sample_rate, frame_length
-                )
+        except Exception as e:
+            raise FeatureExtractionError(
+                f"Spectral feature computation failed: {str(e)}"
+            ) from e
 
         if "zero_crossing_rate" in enabled_features:
             feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
@@ -217,8 +220,19 @@ def process_frame(
         result = FrameFeatures.create(time=time_ms, **feature_values)
         return frame_index, result
 
-    except (ValueError, TypeError, RuntimeError) as e:
-        logger.error(f"Frame processing error at {frame_index}: {str(e)}")
+    except (AudioValidationError, FeatureExtractionError) as e:
+        logger.warning(f"Frame {frame_index} skipped: {str(e)}")
+        return frame_index, None
+    except np.linalg.LinAlgError as e:
+        logger.error(f"Linear algebra error in frame {frame_index}: {str(e)}")
+        return frame_index, None
+    except (ValueError, TypeError) as e:
+        logger.error(f"Frame {frame_index} processing error: {str(e)}")
+        return frame_index, None
+    except (RuntimeError, MemoryError) as e:
+        logger.exception(
+            f"Unexpected runtime or memory error in frame {frame_index}: {str(e)}"
+        )
         return frame_index, None
     finally:
         # Rely on garbage collection rather than explicit deletion.

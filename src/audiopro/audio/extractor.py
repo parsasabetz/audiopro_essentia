@@ -27,6 +27,7 @@ from audiopro.utils import (
 from audiopro.output.types import FeatureConfig
 from .processors import process_frame
 from .models import FrameFeatures
+from .exceptions import ExtractionPipelineError, AudioValidationError
 
 # Set up logger
 logger = get_logger()
@@ -48,7 +49,7 @@ def create_frame_generator(
     """
     for frame_idx in range(total_frames):
         start_idx = frame_idx * HOP_LENGTH
-        if start_idx + FRAME_LENGTH > total_samples:
+        if (start_idx + FRAME_LENGTH) > total_samples:
             break
         frame_data = audio_data[start_idx : start_idx + FRAME_LENGTH].copy()
         if len(frame_data) == FRAME_LENGTH:
@@ -87,121 +88,158 @@ def extract_features(
     Raises:
         ValueError: If the audio data is too short or invalid
         RuntimeError: If processing fails critically
+        ExtractionPipelineError: If there is a critical error in the extraction pipeline
+        AudioValidationError: If the audio data is invalid
     """
-    # Add early return if no features enabled
-    if feature_config is not None and not any(feature_config.values()):
-        logger.warning("No features enabled in configuration")
-        return []
-
-    if not isinstance(audio_data, np.ndarray):
-        raise ValueError("Audio data must be a numpy array")
-
-    if len(audio_data) < FRAME_LENGTH:
-        raise ValueError(
-            f"Audio data too short for analysis: {len(audio_data)} samples < {FRAME_LENGTH} required"
-        )
-
-    # Convert to float32 for memory efficiency if not already
-    if audio_data.dtype != np.float32:
-        audio_data = audio_data.astype(np.float32)
-
-    # Reshape interleaved multi-channel audio if needed
-    if audio_data.ndim == 1 and channels > 1:
-        samples_per_channel = audio_data.shape[0] // channels
-        audio_data = audio_data[: samples_per_channel * channels].reshape(
-            (samples_per_channel, channels)
-        )
-
-    # Correctly compute duration (samples per channel / sample_rate)
-    duration = audio_data.shape[0] / sample_rate
-    logger.info(f"Audio length: {audio_data.shape[0]} samples")
-    logger.info(f"Audio duration: {duration:.2f} seconds")
-
-    # Calculate expected frames based on hop length
-    n_frames = 1 + (audio_data.shape[0] - FRAME_LENGTH) // HOP_LENGTH
-    logger.info(f"Expected number of frames: {n_frames}")
-
-    # Log which features will be computed
-    if feature_config is not None:
-        enabled_features = [k for k, v in feature_config.items() if v]
-        logger.info(f"Computing selected features: {', '.join(enabled_features)}")
-    else:
-        logger.info("Computing all available features")
-
-    # Precompute arrays once and ensure they're float32
-    window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
-    freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
-
-    # Create the process function once (constant across batches)
-    process_func = partial(
-        process_frame,
-        sample_rate=sample_rate,
-        frame_length=FRAME_LENGTH,
-        window_func=window_func,
-        freq_array=freq_array,
-        feature_config=feature_config,
-        start_sample=start_sample,  # Pass start sample to process_frame
-    )
-
-    # Optimal resource allocation
-    MAX_WORKERS = min(
-        calculate_max_workers(audio_data.shape[0], FRAME_LENGTH, HOP_LENGTH),
-        mp.cpu_count(),
-    )
-    # Optimize chunk size calculation
-    CHUNK_SIZE = max(1, min(BATCH_SIZE // MAX_WORKERS, n_frames // (MAX_WORKERS * 2)))
-
-    processed_frames = 0
-    valid_features: List[Dict] = [] if on_feature is None else []
-    error_count = 0
-    MAX_ERRORS = n_frames // 2.5  # Allow up to 2.5% error rate
-
     try:
-        # Process batches with a streaming generator using minimal memory footprint
-        with mp.Pool(processes=MAX_WORKERS) as pool:
-            frames_iter = create_frame_generator(
-                audio_data, audio_data.shape[0], n_frames
+        # Input validation with more specific errors
+        if not isinstance(audio_data, np.ndarray):
+            raise AudioValidationError("Audio data must be a numpy array")
+        if not np.isfinite(audio_data).all():
+            raise AudioValidationError("Audio data contains infinite or NaN values")
+        if sample_rate <= 0:
+            raise AudioValidationError(f"Invalid sample rate: {sample_rate}")
+        if channels <= 0:
+            raise AudioValidationError(f"Invalid number of channels: {channels}")
+        if len(audio_data) < FRAME_LENGTH:
+            raise AudioValidationError(
+                f"Audio data too short: {len(audio_data)} samples < {FRAME_LENGTH} required"
             )
 
-            # Process batches until no frames remain
-            for batch_frames in iter(lambda: list(islice(frames_iter, BATCH_SIZE)), []):
-                if error_count > MAX_ERRORS:
-                    raise RuntimeError(f"Too many processing errors: {error_count}")
+        # Early return checks
+        if feature_config is not None and not any(feature_config.values()):
+            logger.warning("No features enabled in configuration")
+            return []
 
-                try:
-                    # Use imap with optimized chunk size for improved memory usage
-                    for _, feature in pool.imap(
-                        process_func, batch_frames, chunksize=CHUNK_SIZE
-                    ):
-                        if feature is not None:
-                            if on_feature is not None:
-                                on_feature(feature)
+        # Convert to float32 for memory efficiency if not already
+        if audio_data.dtype != np.float32:
+            audio_data = audio_data.astype(np.float32)
+
+        # Reshape interleaved multi-channel audio if needed
+        if audio_data.ndim == 1 and channels > 1:
+            samples_per_channel = audio_data.shape[0] // channels
+            audio_data = audio_data[: samples_per_channel * channels].reshape(
+                (samples_per_channel, channels)
+            )
+
+        # Correctly compute duration (samples per channel / sample_rate)
+        duration = audio_data.shape[0] / sample_rate
+        logger.info(f"Audio length: {audio_data.shape[0]} samples")
+        logger.info(f"Audio duration: {duration:.2f} seconds")
+
+        # Calculate expected frames based on hop length
+        n_frames = 1 + (audio_data.shape[0] - FRAME_LENGTH) // HOP_LENGTH
+        logger.info(f"Expected number of frames: {n_frames}")
+
+        # Log which features will be computed
+        if feature_config is not None:
+            enabled_features = [k for k, v in feature_config.items() if v]
+            logger.info(f"Computing selected features: {', '.join(enabled_features)}")
+        else:
+            logger.info("Computing all available features")
+
+        # Precompute arrays once and ensure they're float32
+        window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
+        freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
+
+        # Create the process function once (constant across batches)
+        process_func = partial(
+            process_frame,
+            sample_rate=sample_rate,
+            frame_length=FRAME_LENGTH,
+            window_func=window_func,
+            freq_array=freq_array,
+            feature_config=feature_config,
+            start_sample=start_sample,  # Pass start sample to process_frame
+        )
+
+        # Optimal resource allocation
+        MAX_WORKERS = min(
+            calculate_max_workers(audio_data.shape[0], FRAME_LENGTH, HOP_LENGTH),
+            mp.cpu_count(),
+        )
+        # Optimize chunk size calculation
+        CHUNK_SIZE = max(
+            1, min(BATCH_SIZE // MAX_WORKERS, n_frames // (MAX_WORKERS * 2))
+        )
+
+        processed_frames = 0
+        valid_features: List[Dict] = [] if on_feature is None else []
+        error_count = 0
+        MAX_ERRORS = n_frames // 2.5  # Allow up to 2.5% error rate
+
+        try:
+            # Process batches with a streaming generator using minimal memory footprint
+            with mp.Pool(processes=MAX_WORKERS) as pool:
+                frames_iter = create_frame_generator(
+                    audio_data, audio_data.shape[0], n_frames
+                )
+
+                # Process batches until no frames remain
+                for batch_frames in iter(
+                    lambda: list(islice(frames_iter, BATCH_SIZE)), []
+                ):
+                    if error_count > MAX_ERRORS:
+                        failed_percent = (error_count / n_frames) * 100
+                        raise ExtractionPipelineError(
+                            f"Excessive processing errors: {error_count} failures ({failed_percent:.1f}% of frames)"
+                        )
+
+                    try:
+                        # Use imap with optimized chunk size for improved memory usage
+                        for _, feature in pool.imap(
+                            process_func, batch_frames, chunksize=CHUNK_SIZE
+                        ):
+                            if feature is not None:
+                                if on_feature is not None:
+                                    on_feature(feature)
+                                else:
+                                    # Convert to dict excluding None values
+                                    valid_features.append(feature.to_dict())
                             else:
-                                # Convert to dict excluding None values
-                                valid_features.append(feature.to_dict())
-                        else:
-                            error_count += 1
-                        processed_frames += 1
+                                error_count += 1
+                            processed_frames += 1
 
-                        # Periodic progress updates
-                        if processed_frames % 1000 == 0:
-                            logger.info(
-                                f"Processed {processed_frames}/{n_frames} frames"
-                            )
+                            # Periodic progress updates
+                            if processed_frames % 1000 == 0:
+                                logger.info(
+                                    f"Processed {processed_frames}/{n_frames} frames"
+                                )
 
-                except (mp.TimeoutError, mp.ProcessError) as e:
-                    error_count += len(batch_frames)
-                    logger.error(f"Batch processing error: {str(e)}")
-                    continue
+                    except mp.TimeoutError as e:
+                        logger.error(
+                            f"Batch processing timeout at frame {processed_frames}"
+                        )
+                        error_count += len(batch_frames)
+                        if error_count > MAX_ERRORS:
+                            raise ExtractionPipelineError(
+                                "Too many timeout errors"
+                            ) from e
+                    except mp.ProcessError as e:
+                        logger.error(f"Process error in batch: {str(e)}")
+                        error_count += len(batch_frames)
+                    except (ValueError, TypeError, RuntimeError) as e:
+                        logger.exception(f"Batch processing error: {str(e)}")
+                        error_count += len(batch_frames)
 
                 # Force garbage collection periodically
                 if processed_frames % (BATCH_SIZE * 10) == 0:
                     gc.collect()
 
-    except Exception as e:
-        logger.error(f"Critical error during processing: {str(e)}")
-        raise RuntimeError(f"Feature extraction failed: {str(e)}") from e
+        except ExtractionPipelineError:
+            raise
+        except Exception as e:
+            logger.exception("Critical pipeline error")
+            raise ExtractionPipelineError("Feature extraction pipeline failed") from e
 
+    except AudioValidationError as e:
+        logger.error(f"Audio validation failed: {str(e)}")
+        raise
+    except ExtractionPipelineError:
+        raise
+    except Exception as e:
+        logger.exception("Unexpected error in feature extraction")
+        raise ExtractionPipelineError("Unexpected extraction error") from e
     finally:
         # Clean up
         del window_func, freq_array
