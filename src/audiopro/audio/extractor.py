@@ -247,6 +247,11 @@ def extract_features(
                             logger.exception(f"Batch processing error: {str(e)}")
                             error_count += len(batch_frames)
 
+                        # Release batch_frames immediately after processing for better memory reclamation.
+                        del batch_frames
+                        # Optionally, force GC if under heavy load:
+                        gc.collect()
+
                     # Force garbage collection periodically
                     if processed_frames % (BATCH_SIZE * 10) == 0:
                         gc.collect()
