@@ -96,7 +96,39 @@ def process_frame(
     feature_config: Optional[FeatureConfig] = None,
     start_sample: int = 0,
 ) -> Tuple[int, Optional[FrameFeatures]]:
-    """Process a single frame of audio data."""
+    """
+    Process a single frame of audio data to extract various features.
+
+    Parameters:
+        - frame_data (Tuple[int, NDArray[np.float32]]): A tuple containing the frame index and the frame data.
+        - sample_rate (int): The sample rate of the audio data.
+        - frame_length (int): The length of the frame.
+        - window_func (NDArray[np.float32]): The window function to apply to the frame.
+        - freq_array (NDArray[np.float32]): Array of frequency values.
+        - feature_config (Optional[FeatureConfig]): Configuration for which features to extract. If None, all available features are extracted.
+        - start_sample (int): The starting sample index for the frame.
+
+    Returns:
+        - Tuple[int, Optional[FrameFeatures]]: A tuple containing the frame index and the extracted features, or None if an error occurred.
+
+    Raises:
+        - AudioValidationError: If the frame data is invalid.
+        - FeatureExtractionError: If there is an error during feature extraction.
+        - SpectralFeatureError: If there is an error during spectral feature extraction.
+        - Exception: For any other unexpected errors.
+
+    Features extracted may include:
+        - volume
+        - rms
+        - spectral_centroid
+        - spectral_bandwidth
+        - spectral_flatness
+        - spectral_rolloff
+        - mfcc
+        - chroma
+        - frequency_bands
+        - zero_crossing_rate
+    """
     frame_stats = ErrorStats()
 
     with error_tracking_context(frame_stats):
