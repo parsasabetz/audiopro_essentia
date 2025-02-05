@@ -136,7 +136,7 @@ class AudioFeature(TypedDict, total=False):
     Features will only be present if they were requested in the FeatureConfig.
 
     Attributes:
-        time (float): Time position in milliseconds for the current frame.
+        time (float): Unix timestamp in seconds for the current frame.
         rms (Optional[float]): Root Mean Square energy value.
         volume (Optional[float]): Volume in decibels (20 * log10(rms)).
         spectral_centroid (Optional[float]): Weighted mean of frequencies present in the signal.
@@ -149,7 +149,7 @@ class AudioFeature(TypedDict, total=False):
         chroma (Optional[List[float]]): Distribution of spectral energy across the 12 pitch classes (12 values).
     """
 
-    time: float  # Time is always required
+    time: float  # Unix timestamp in seconds
     rms: Optional[float]
     volume: Optional[float]
     spectral_centroid: Optional[float]
