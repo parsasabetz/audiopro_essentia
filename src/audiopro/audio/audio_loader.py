@@ -95,10 +95,10 @@ def load_and_preprocess_audio(
             "sample_rate": sample_rate,
         }
 
-        # In-place even-length adjustment to minimize extra copy creation
+        # In-place even-length adjustment: instead of padding, drop the last sample if odd.
         if len(audio_data) % 2 != 0:
-            audio_data = np.pad(audio_data, (0, 1), mode="constant").astype(np.float32)
-            logger.info("Padded audio_data to even length for FFT.")
+            audio_data = audio_data[:-1]  # Drop one sample to avoid extra allocation.
+            logger.info("Dropped last sample to enforce even length for FFT.")
 
         # Combine empty/silent check with signal energy check to reduce redundancy
         signal_energy = np.sum(audio_data**2)
