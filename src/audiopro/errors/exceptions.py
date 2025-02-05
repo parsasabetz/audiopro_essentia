@@ -24,7 +24,7 @@ class AudioProcessingError(Exception):
         self.message = message
         self.details = details or {}
 
-        # Add call location information
+        # Add call location information automatically
         frame = inspect.currentframe()
         if frame:
             caller = frame.f_back  # Get the caller's frame
