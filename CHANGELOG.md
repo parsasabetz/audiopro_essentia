@@ -1,3 +1,31 @@
+## 0.12.0 (2025-02-05)
+
+### Feat
+
+- **extractor**: improve memory management by releasing batch frames and forcing garbage collection
+- **processors**: enhance docstring for `process_frame` function with detailed parameter and return information
+- **processors**: enhance error tracking and stats for processing frames for feature extraction
+- **extractor**: enhance error tracking and logging in audio feature extraction
+- **errors**: add error tracking utilities and enhance error statistics management
+- **processors**: enhance frame processing with improved error handling and validation
+- **extractor**: improve error handling with detailed messages for audio extraction
+- **audio_loader**: enhance error handling with custom exceptions for audio loading
+- **errors**: add custom exceptions for audio processing and create error module
+- **processors, extractor**: enhance frame processing with improved validation and error handling
+- **exceptions**: add custom exceptions for audio processing errors
+
+### Fix
+
+- **output**: update time attribute description to clarify it as a Unix timestamp in seconds
+- **output**: remove `strict_types` from msgpack packing to improve compatibility
+
+### Refactor
+
+- **audio_loader**: update in-place even-length adjustment logic to drop last sample if odd to reduce memory allocation
+- **exceptions**: clarify comment on automatic call location information
+- **audio**: remove obsolete exception imports from audio module
+- **exceptions**: remove obsolete custom exceptions for audio processing
+
 ## 0.11.0 (2025-02-04)
 
 ### Feat
