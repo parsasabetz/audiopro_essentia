@@ -10,10 +10,21 @@ from .exceptions import (
     SpectralFeatureError,
 )
 
+from .tracking import (
+    ErrorRateLimiter,
+    ErrorStats,
+    error_tracking_context,
+)
+
 __all__ = [
+    # exceptions
     "AudioIOError",
     "AudioProcessingError",
     "AudioValidationError",
     "FeatureExtractionError",
     "SpectralFeatureError",
+    # tracking
+    "ErrorRateLimiter",
+    "ErrorStats",
+    "error_tracking_context",
 ]
