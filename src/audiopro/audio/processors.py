@@ -22,6 +22,7 @@ from audiopro.errors.exceptions import (
     AudioValidationError,
     SpectralFeatureError,
 )
+from audiopro.errors.tracking import error_tracking_context, ErrorStats
 
 # Setup logger
 logger = get_logger(__name__)
@@ -96,153 +97,174 @@ def process_frame(
     start_sample: int = 0,
 ) -> Tuple[int, Optional[FrameFeatures]]:
     """Process a single frame of audio data."""
-    frame_index, frame = frame_data
+    frame_stats = ErrorStats()
 
-    try:
-        # Validation
-        if not isinstance(frame, np.ndarray):
-            raise AudioValidationError(
-                message="Invalid frame data type",
-                parameter="frame",
-                expected="numpy.ndarray",
-                actual=type(frame).__name__,
-            )
-        if frame.size == 0:
-            raise FeatureExtractionError("Empty frame data")
-        if np.all(np.isnan(frame)):
-            raise FeatureExtractionError("Frame contains only NaN values")
-        if not np.isfinite(frame).all():
-            raise FeatureExtractionError("Frame contains infinite values")
-        if frame.dtype != np.float32:
-            frame = frame.astype(np.float32)
-
-        # Convert to mono once if multi-channel
-        if frame.ndim > 1:
-            frame = np.mean(frame, axis=1)
-
-        # Apply window function and pad if necessary
-        if len(frame) < frame_length:
-            frame = np.pad(frame, (0, frame_length - len(frame)))
-        frame = frame.astype(np.float32) * window_func
-
-        # Initialize features dictionary and compute RMS once for features
-        feature_values = {}
-        eps = np.finfo(float).eps
-        rms_value = float(np.sqrt(np.mean(frame**2)))
-
-        # Determine enabled features and include "volume" by default if no config is provided
-        if feature_config is None:
-            enabled_features = AVAILABLE_FEATURES | {"volume"}
-        else:
-            enabled_features = {k for k, v in feature_config.items() if v}
-
-        if "volume" in enabled_features:
-            feature_values["volume"] = 20 * np.log10(rms_value + eps)
-
-        # Compute rms if requested
-        if "rms" in enabled_features:
-            feature_values["rms"] = rms_value
-
-        # Filter enabled features to only those set to True
-        enabled_features = (
-            {k for k, v in feature_config.items() if v}
-            if feature_config
-            else AVAILABLE_FEATURES
-        )
-
-        needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
-
-        # Spectral processing with better error context
+    with error_tracking_context(frame_stats):
         try:
-            if needs_spectrum:
-                spectrum_alg = get_spectrum_algorithm()
-                spec = spectrum_alg(frame)
+            frame_index, frame = frame_data
 
-                if np.all(spec == 0):
+            try:
+                # Validation
+                if not isinstance(frame, np.ndarray):
+                    raise AudioValidationError(
+                        message="Invalid frame data type",
+                        parameter="frame",
+                        expected="numpy.ndarray",
+                        actual=type(frame).__name__,
+                    )
+                if frame.size == 0:
+                    raise FeatureExtractionError("Empty frame data")
+                if np.all(np.isnan(frame)):
+                    raise FeatureExtractionError("Frame contains only NaN values")
+                if not np.isfinite(frame).all():
+                    raise FeatureExtractionError("Frame contains infinite values")
+                if frame.dtype != np.float32:
+                    frame = frame.astype(np.float32)
+
+                # Convert to mono once if multi-channel
+                if frame.ndim > 1:
+                    frame = np.mean(frame, axis=1)
+
+                # Apply window function and pad if necessary
+                if len(frame) < frame_length:
+                    frame = np.pad(frame, (0, frame_length - len(frame)))
+                frame = frame.astype(np.float32) * window_func
+
+                # Initialize features dictionary and compute RMS once for features
+                feature_values = {}
+                eps = np.finfo(float).eps
+                rms_value = float(np.sqrt(np.mean(frame**2)))
+
+                # Determine enabled features and include "volume" by default if no config is provided
+                if feature_config is None:
+                    enabled_features = AVAILABLE_FEATURES | {"volume"}
+                else:
+                    enabled_features = {k for k, v in feature_config.items() if v}
+
+                if "volume" in enabled_features:
+                    feature_values["volume"] = 20 * np.log10(rms_value + eps)
+
+                # Compute rms if requested
+                if "rms" in enabled_features:
+                    feature_values["rms"] = rms_value
+
+                # Filter enabled features to only those set to True
+                enabled_features = (
+                    {k for k, v in feature_config.items() if v}
+                    if feature_config
+                    else AVAILABLE_FEATURES
+                )
+
+                needs_spectrum = bool(enabled_features & SPECTRAL_FEATURES)
+
+                # Spectral processing with better error context
+                try:
+                    if needs_spectrum:
+                        spectrum_alg = get_spectrum_algorithm()
+                        spec = spectrum_alg(frame)
+
+                        if np.all(spec == 0):
+                            raise SpectralFeatureError(
+                                message="Zero spectrum detected",
+                                feature_name="spectrum",
+                                frame_index=frame_index,
+                            )
+
+                        # Compute centroid once if needed by centroid or bandwidth
+                        if (
+                            "spectral_centroid" in enabled_features
+                            or "spectral_bandwidth" in enabled_features
+                        ):
+                            centroid_value = float(
+                                es.Centroid(range=sample_rate / 2)(spec)
+                            )
+                            if "spectral_centroid" in enabled_features:
+                                feature_values["spectral_centroid"] = centroid_value
+
+                        if "spectral_bandwidth" in enabled_features:
+                            spectrum_sum = np.sum(spec)
+                            if spectrum_sum > 1e-10:
+                                # Convert spec once to float32 and reuse for bandwidth computation
+                                spec_float32 = spec.astype(np.float32)
+                                freq_diff = (freq_array - centroid_value).astype(
+                                    np.float32
+                                )
+                                variance = (
+                                    np.sum(freq_diff * freq_diff * spec_float32)
+                                    / spectrum_sum
+                                )
+                                feature_values["spectral_bandwidth"] = float(
+                                    np.sqrt(np.clip(variance, 0, None))
+                                )
+                            else:
+                                feature_values["spectral_bandwidth"] = 0.0
+
+                        if "spectral_flatness" in enabled_features:
+                            flatness_alg = es.Flatness()
+                            feature_values["spectral_flatness"] = float(
+                                flatness_alg(spec)
+                            )
+
+                        if "spectral_rolloff" in enabled_features:
+                            rolloff_alg = es.RollOff()
+                            feature_values["spectral_rolloff"] = float(
+                                rolloff_alg(spec)
+                            )
+
+                        if "mfcc" in enabled_features:
+                            mfcc_alg = get_mfcc_algorithm()
+                            _, mfcc_coeffs = mfcc_alg(spec)
+                            feature_values["mfcc"] = mfcc_coeffs.tolist()
+
+                        if "chroma" in enabled_features:
+                            spectral_peaks = es.SpectralPeaks()
+                            freqs_peaks, mags_peaks = spectral_peaks(spec)
+                            hpcp_alg = get_hpcp_algorithm()
+                            chroma_vector = (
+                                hpcp_alg(freqs_peaks, mags_peaks)
+                                if len(freqs_peaks) > 0
+                                else np.zeros(12, dtype=np.float32)
+                            )
+                            feature_values["chroma"] = chroma_vector.tolist()
+
+                        if "frequency_bands" in enabled_features:
+                            feature_values["frequency_bands"] = compute_frequency_bands(
+                                spec, sample_rate, frame_length
+                            )
+
+                except Exception as e:
                     raise SpectralFeatureError(
-                        message="Zero spectrum detected",
+                        message="Spectral processing failed",
                         feature_name="spectrum",
                         frame_index=frame_index,
+                        original_error=str(e),
+                    ) from e
+
+                if "zero_crossing_rate" in enabled_features:
+                    feature_values["zero_crossing_rate"] = float(
+                        es.ZeroCrossingRate()(frame)
                     )
 
-                # Compute centroid once if needed by centroid or bandwidth
-                if (
-                    "spectral_centroid" in enabled_features
-                    or "spectral_bandwidth" in enabled_features
-                ):
-                    centroid_value = float(es.Centroid(range=sample_rate / 2)(spec))
-                    if "spectral_centroid" in enabled_features:
-                        feature_values["spectral_centroid"] = centroid_value
+                # Create FrameFeatures instance with only computed features
+                time_ms = (
+                    (start_sample + frame_index * HOP_LENGTH) / sample_rate
+                ) * 1000
+                result = FrameFeatures.create(time=time_ms, **feature_values)
+                return frame_index, result
 
-                if "spectral_bandwidth" in enabled_features:
-                    spectrum_sum = np.sum(spec)
-                    if spectrum_sum > 1e-10:
-                        # Convert spec once to float32 and reuse for bandwidth computation
-                        spec_float32 = spec.astype(np.float32)
-                        freq_diff = (freq_array - centroid_value).astype(np.float32)
-                        variance = (
-                            np.sum(freq_diff * freq_diff * spec_float32) / spectrum_sum
-                        )
-                        feature_values["spectral_bandwidth"] = float(
-                            np.sqrt(np.clip(variance, 0, None))
-                        )
-                    else:
-                        feature_values["spectral_bandwidth"] = 0.0
-
-                if "spectral_flatness" in enabled_features:
-                    flatness_alg = es.Flatness()
-                    feature_values["spectral_flatness"] = float(flatness_alg(spec))
-
-                if "spectral_rolloff" in enabled_features:
-                    rolloff_alg = es.RollOff()
-                    feature_values["spectral_rolloff"] = float(rolloff_alg(spec))
-
-                if "mfcc" in enabled_features:
-                    mfcc_alg = get_mfcc_algorithm()
-                    _, mfcc_coeffs = mfcc_alg(spec)
-                    feature_values["mfcc"] = mfcc_coeffs.tolist()
-
-                if "chroma" in enabled_features:
-                    spectral_peaks = es.SpectralPeaks()
-                    freqs_peaks, mags_peaks = spectral_peaks(spec)
-                    hpcp_alg = get_hpcp_algorithm()
-                    chroma_vector = (
-                        hpcp_alg(freqs_peaks, mags_peaks)
-                        if len(freqs_peaks) > 0
-                        else np.zeros(12, dtype=np.float32)
-                    )
-                    feature_values["chroma"] = chroma_vector.tolist()
-
-                if "frequency_bands" in enabled_features:
-                    feature_values["frequency_bands"] = compute_frequency_bands(
-                        spec, sample_rate, frame_length
-                    )
-
+            except AudioValidationError as e:
+                logger.warning(f"Frame {frame_index} validation failed: {e}")
+                return frame_index, None
+            except (FeatureExtractionError, SpectralFeatureError) as e:
+                logger.error(f"Frame {frame_index} processing error: {e}")
+                return frame_index, None
+            except (ValueError, TypeError) as e:
+                logger.exception(f"Unexpected error in frame {frame_index}: {e}")
+                return frame_index, None
+            finally:
+                # Rely on garbage collection rather than explicit deletion.
+                pass
         except Exception as e:
-            raise SpectralFeatureError(
-                message="Spectral processing failed",
-                feature_name="spectrum",
-                frame_index=frame_index,
-                original_error=str(e),
-            ) from e
-
-        if "zero_crossing_rate" in enabled_features:
-            feature_values["zero_crossing_rate"] = float(es.ZeroCrossingRate()(frame))
-
-        # Create FrameFeatures instance with only computed features
-        time_ms = ((start_sample + frame_index * HOP_LENGTH) / sample_rate) * 1000
-        result = FrameFeatures.create(time=time_ms, **feature_values)
-        return frame_index, result
-
-    except AudioValidationError as e:
-        logger.warning(f"Frame {frame_index} validation failed: {e}")
-        return frame_index, None
-    except (FeatureExtractionError, SpectralFeatureError) as e:
-        logger.error(f"Frame {frame_index} processing error: {e}")
-        return frame_index, None
-    except (ValueError, TypeError) as e:
-        logger.exception(f"Unexpected error in frame {frame_index}: {e}")
-        return frame_index, None
-    finally:
-        # Rely on garbage collection rather than explicit deletion.
-        pass
+            if frame_stats.total_errors > 0:
+                logger.debug(f"Frame error stats: {frame_stats.get_summary()}")
+            raise
