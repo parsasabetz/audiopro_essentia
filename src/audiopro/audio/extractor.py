@@ -30,6 +30,11 @@ from audiopro.errors.exceptions import (
     ExtractionPipelineError,
     AudioValidationError,
 )
+from audiopro.errors.tracking import (
+    ErrorStats,
+    ErrorRateLimiter,
+    error_tracking_context,
+)
 from .processors import process_frame
 from .models import FrameFeatures
 
@@ -96,6 +101,9 @@ def extract_features(
         AudioValidationError: If the audio data is invalid
         AudioProcessingError: If an unexpected processing error occurs
     """
+    error_stats = ErrorStats()
+    error_limiter = ErrorRateLimiter()
+
     try:
         # Input validation with more specific errors
         if not isinstance(audio_data, np.ndarray):
@@ -180,67 +188,73 @@ def extract_features(
 
         try:
             # Process batches with a streaming generator using minimal memory footprint
-            with mp.Pool(processes=MAX_WORKERS) as pool:
-                frames_iter = create_frame_generator(
-                    audio_data, audio_data.shape[0], n_frames
-                )
+            with error_tracking_context(error_stats):
+                with mp.Pool(processes=MAX_WORKERS) as pool:
+                    frames_iter = create_frame_generator(
+                        audio_data, audio_data.shape[0], n_frames
+                    )
 
-                # Process batches until no frames remain
-                for batch_frames in iter(
-                    lambda: list(islice(frames_iter, BATCH_SIZE)), []
-                ):
-                    if error_count > MAX_ERRORS:
-                        raise ExtractionPipelineError(
-                            message="Excessive processing errors",
-                            error_count=error_count,
-                            total_frames=n_frames,
-                            error_rate=f"{(error_count/n_frames)*100:.2f}%",
-                        )
-
-                    try:
-                        # Use imap with optimized chunk size for improved memory usage
-                        for _, feature in pool.imap(
-                            process_func, batch_frames, chunksize=CHUNK_SIZE
-                        ):
-                            if feature is not None:
-                                if on_feature is not None:
-                                    on_feature(feature)
-                                else:
-                                    # Convert to dict excluding None values
-                                    valid_features.append(feature.to_dict())
-                            else:
-                                error_count += 1
-                            processed_frames += 1
-
-                            # Periodic progress updates
-                            if processed_frames % 1000 == 0:
-                                logger.info(
-                                    f"Processed {processed_frames}/{n_frames} frames"
-                                )
-
-                    except mp.TimeoutError as e:
-                        logger.error(
-                            f"Batch processing timeout at frame {processed_frames}"
-                        )
-                        error_count += len(batch_frames)
+                    # Process batches until no frames remain
+                    for batch_frames in iter(
+                        lambda: list(islice(frames_iter, BATCH_SIZE)), []
+                    ):
                         if error_count > MAX_ERRORS:
                             raise ExtractionPipelineError(
-                                "Too many timeout errors"
-                            ) from e
-                    except mp.ProcessError as e:
-                        logger.error(f"Process error in batch: {str(e)}")
-                        error_count += len(batch_frames)
-                    except (ValueError, TypeError, RuntimeError) as e:
-                        logger.exception(f"Batch processing error: {str(e)}")
-                        error_count += len(batch_frames)
+                                message="Excessive processing errors",
+                                error_count=error_count,
+                                total_frames=n_frames,
+                                error_rate=f"{(error_count/n_frames)*100:.2f}%",
+                            )
 
-                # Force garbage collection periodically
-                if processed_frames % (BATCH_SIZE * 10) == 0:
-                    gc.collect()
+                        try:
+                            # Use imap with optimized chunk size for improved memory usage
+                            for _, feature in pool.imap(
+                                process_func, batch_frames, chunksize=CHUNK_SIZE
+                            ):
+                                if feature is not None:
+                                    if on_feature is not None:
+                                        on_feature(feature)
+                                    else:
+                                        # Convert to dict excluding None values
+                                        valid_features.append(feature.to_dict())
+                                else:
+                                    if error_limiter.should_log():
+                                        logger.warning(
+                                            f"Frame processing failed at {processed_frames}"
+                                        )
+                                    error_count += 1
+                                processed_frames += 1
+
+                                # Periodic progress updates
+                                if processed_frames % 1000 == 0:
+                                    logger.info(
+                                        f"Processed {processed_frames}/{n_frames} frames"
+                                    )
+
+                        except mp.TimeoutError as e:
+                            logger.error(
+                                f"Batch processing timeout at frame {processed_frames}"
+                            )
+                            error_count += len(batch_frames)
+                            if error_count > MAX_ERRORS:
+                                raise ExtractionPipelineError(
+                                    "Too many timeout errors"
+                                ) from e
+                        except mp.ProcessError as e:
+                            logger.error(f"Process error in batch: {str(e)}")
+                            error_count += len(batch_frames)
+                        except (ValueError, TypeError, RuntimeError) as e:
+                            logger.exception(f"Batch processing error: {str(e)}")
+                            error_count += len(batch_frames)
+
+                    # Force garbage collection periodically
+                    if processed_frames % (BATCH_SIZE * 10) == 0:
+                        gc.collect()
 
         except ExtractionPipelineError:
             raise
         except Exception as e:
+            logger.error(f"Pipeline error stats: {error_stats.get_summary()}")
             raise ExtractionPipelineError(
                 message="Pipeline execution failed",
                 error_count=error_count,
@@ -257,6 +271,8 @@ def extract_features(
             message="Unexpected processing error", details={"error": str(e)}
         ) from e
     finally:
+        if error_stats.total_errors > 0:
+            logger.info(f"Error statistics:\n{error_stats.get_summary()}")
         # Clean up
         del window_func, freq_array
         gc.collect()
