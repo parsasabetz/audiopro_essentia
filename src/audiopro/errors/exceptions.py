@@ -39,10 +39,15 @@ class AudioProcessingError(Exception):
         super().__init__(self.message)
 
     def __str__(self) -> str:
-        location = f"[{self.details.get('file')}:{self.details.get('function')}:{self.details.get('line')}]"
-        if self.details:
-            return f"{location} {self.message} - Details: {self.details}"
-        return f"{location} {self.message}"
+        # Show full details if DEBUG is enabled
+        if os.getenv("DEBUG", "0") == "1":
+            details_str = ", ".join(
+                f"{key}={value}" for key, value in self.details.items()
+            )
+            return f"[{self.details.get('file')}:{self.details.get('function')}:{self.details.get('line')}] {self.message} - Details: {{{details_str}}}"
+        else:
+            # Friendly short message for terminal output
+            return f"Oops! {self.message}. Please check your input or configuration."
 
 
 class FeatureExtractionError(AudioProcessingError):
