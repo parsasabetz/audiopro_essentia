@@ -62,6 +62,12 @@ def parse_arguments() -> Dict[str, Any]:
         help="Skip performance monitoring to reduce overhead",
     )
 
+    parser.add_argument(
+        "--gzip",
+        action="store_true",
+        help="Enable gzip compression for msgpack output",
+    )
+
     # Feature selection arguments
     feature_group = parser.add_argument_group("Feature Selection")
     feature_group.add_argument(
@@ -102,6 +108,7 @@ def parse_arguments() -> Dict[str, Any]:
         "skip_monitoring": args.skip_monitoring,
         "feature_config": create_feature_config(args.features),
         "time_range": time_range if time_range else None,
+        "gzip_output": args.gzip,  # Pass gzip flag
     }
 
     return result

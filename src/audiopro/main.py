@@ -35,5 +35,6 @@ if __name__ == "__main__":
             output_format=args["format"],
             skip_monitoring=args["skip_monitoring"],
             feature_config=args["feature_config"],
+            gzip_output=args["gzip_output"],  # Pass gzip flag
         )
     )

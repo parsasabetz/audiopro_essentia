@@ -39,6 +39,9 @@ python -m audiopro input.wav output --format json
 # Skip performance monitoring
 python -m audiopro input.wav output --skip-monitoring
 
+# Enable gzip compression for msgpack output
+python -m audiopro input.wav output --gzip
+
 # INCORRECT - don't include extension in output name
 ❌ python -m audiopro input.wav output.json  # This will raise an error
 
@@ -110,6 +113,8 @@ The library supports two output formats:
 1. Provide the output path without extension
 2. Use `output_format` or `--format` to specify the format
 3. The library will automatically add the correct extension
+
+**Note**: Gzip compression applies only to the msgpack format.
 
 For example:
 ```python
