@@ -87,6 +87,7 @@ await analyze_audio(
     output_path="output",  # No extension needed
     output_format="json",  # This determines the extension (.json)
     feature_config=feature_config
+    time_range={"start": 40, "end": 50}, # Analyze only the range from 40 to 50 seconds
 )
 
 # Batch processing multiple files
@@ -258,6 +259,8 @@ feature_config: FeatureConfig = {
 - **Flexible Output**: Choose between JSON and MessagePack formats
 - **Resource Efficient**: Optimized for large audio files with efficient multiprocessing
 - **Metadata Extraction**: Extract detailed audio metadata (e.g., duration, sample rate)
+- **File Validation**: Check for valid audio files before processing, with detailed error messages, allowing only for files up to 50MB in size.
+- **Partial Processing**: Analyze only a specific range of an audio file. Note that if only `start` is provided, the analysis will continue until the end of the file, similarly if only `end` is provided, the analysis will start from the beginning of the file.
 - **Batch Processing**: Process multiple files concurrently with error handling
 
 ## Project Structure
