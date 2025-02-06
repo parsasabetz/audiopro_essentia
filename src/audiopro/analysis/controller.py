@@ -31,6 +31,7 @@ from audiopro.output.types import (
 from audiopro.utils import optimized_convert_to_native_types, extract_rhythm
 from audiopro.utils.logger import get_logger
 from audiopro.utils.process import graceful_shutdown
+from audiopro.utils.path import OutputFormat  # New import for explicit type
 
 # Monitoring imports
 from audiopro.monitor.loader import load_monitor_functions
@@ -45,10 +46,11 @@ OPTIMAL_THREAD_COUNT = min(32, (os.cpu_count() or 1) + 4)
 async def analyze_audio(
     file_path: str,
     output_path: str,
-    output_format: str = "msgpack",
+    output_format: OutputFormat = "msgpack",  # Updated type annotation for output_format
     skip_monitoring: bool = False,
     feature_config: Optional[FeatureConfig] = None,
     time_range: Optional[TimeRange] = None,
+    gzip_output: bool = False,
 ) -> None:
     """
     Analyze an audio file and extract features.
@@ -62,6 +64,7 @@ async def analyze_audio(
                       If None, all features will be computed.
         time_range: Optional time range to analyze (in seconds).
                    If provided, only audio within this range will be analyzed.
+        gzip_output: Whether to gzip the output file
 
     Raises:
         FileNotFoundError: If the input file doesn't exist
@@ -211,7 +214,9 @@ async def analyze_audio(
                 stop_flag.set()
                 monitoring_thread.join(timeout=2)  # Wait max 2 seconds
 
-            await write_output(analysis, output_path, output_format)
+            await write_output(
+                analysis, output_path, output_format, gzip_output=gzip_output
+            )
 
             end_time = time.time()
             if not skip_monitoring and print_performance_stats:
