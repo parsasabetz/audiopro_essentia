@@ -6,8 +6,8 @@ The `setup()` function is called when this script is run as the main module.
 """
 
 # imports
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 if __name__ == "__main__":
-    setup()
+    setup(name="AudioPro", packages=find_packages())
