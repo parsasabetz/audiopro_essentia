@@ -37,9 +37,10 @@ keywords = [
     "music processing",
     "sound processing",
 ]
-description = "Multi-thread audio processing with performance monitoring library"
+description = "Multi-thread audio processing with performance monitoring library, with parallel processing and real-time monitoring."
 readme = "README.md"
 license = { file = "LICENSE" }
+requires-python = "==3.12.6"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
