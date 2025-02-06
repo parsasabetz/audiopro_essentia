@@ -39,6 +39,17 @@ FeatureName = Literal[
     "chroma",
 ]
 
+# Add MimeType Literal for autocomplete support
+MimeType = Literal[
+    "audio/wav",
+    "audio/mpeg",
+    "audio/ogg",
+    "audio/flac",
+    "audio/mp4",
+    "audio/aiff",
+    "unknown",
+]
+
 
 # Define a TypedDict for time range (start_time, end_time)
 class TimeRange(TypedDict, total=False):
@@ -100,7 +111,7 @@ class FileInfo(TypedDict):
     codec: str
     size_mb: float
     created_date: str  # Unix timestamp
-    mime_type: str
+    mime_type: MimeType  # MIME type with autocomplete support
     md5_hash: str
 
 
@@ -191,7 +202,7 @@ class LoaderMetadata(TypedDict):
         format (str): Audio file format (e.g., 'wav', 'mp3').
         size_mb (float): File size in megabytes.
         created_date (float): File creation timestamp.
-        mime_type (str): MIME type of the audio file.
+        mime_type (MimeType): MIME type of the audio file.
         md5_hash (str): MD5 hash of file contents.
         bit_rate (int): Audio bit rate in bits per second.
         codec (str): Audio codec used for encoding.
@@ -203,7 +214,7 @@ class LoaderMetadata(TypedDict):
     format: str
     size_mb: float
     created_date: float  # timestamp
-    mime_type: str
+    mime_type: MimeType
     md5_hash: str
     bit_rate: int
     codec: str
