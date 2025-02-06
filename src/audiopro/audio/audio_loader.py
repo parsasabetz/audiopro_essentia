@@ -1,17 +1,19 @@
+# typing imports
+from typing import Optional, Tuple
+
 # Standard library imports
-import os
-import mimetypes
 from pathlib import Path
-from typing import Optional
+import mimetypes
+import numpy as np
 
 # Third-party scientific/audio processing libraries
-import numpy as np
 import essentia.standard as es
 
 # Local application imports
 from audiopro.utils.logger import get_logger
 from audiopro.output.types import LoaderMetadata, TimeRange
 from audiopro.errors.exceptions import AudioIOError, AudioValidationError
+from .validator import validate_audio_file, validate_audio_signal
 
 # Configure logging for this module
 logger = get_logger(__name__)
@@ -19,7 +21,7 @@ logger = get_logger(__name__)
 
 def load_and_preprocess_audio(
     file_path: str, time_range: Optional[TimeRange] = None
-) -> tuple:
+) -> Tuple[np.ndarray, int, LoaderMetadata, float]:
     """Loads and preprocesses an audio file for analysis.
 
     This function loads an audio file, converts it to mono, and performs several
@@ -35,7 +37,8 @@ def load_and_preprocess_audio(
         tuple: A tuple containing:
             - audio_data (numpy.ndarray): Preprocessed audio samples as a numpy array
             - sample_rate (int): Sample rate of the audio in Hz
-            - duration (float): Duration of the trimmed audio in seconds
+            - loader_metadata (LoaderMetadata): Metadata about the loaded audio file
+            - duration (float): Duration of the audio in seconds
 
     Raises:
         AudioIOError: If there is an error loading or processing the audio file.
@@ -51,14 +54,16 @@ def load_and_preprocess_audio(
         - Minimum audio length required is 100ms
     """
     try:
+        validate_audio_file(file_path)
+
         logger.info("Loading audio file: %s", file_path)
         try:
             audio_data, sample_rate, channels, md5, bit_rate, codec = es.AudioLoader(
                 filename=file_path, computeMD5=True
             )()
-        except Exception as e:
+        except RuntimeError as e:
             raise AudioIOError(
-                message="Failed to load audio file",
+                message="File appears corrupted or invalid audio format",
                 filepath=file_path,
                 operation="read",
                 error=str(e),
@@ -66,25 +71,28 @@ def load_and_preprocess_audio(
 
         if time_range:
             start_sample = int(time_range.get("start", 0) * sample_rate)
-            end_sample = (
-                int(time_range["end"] * sample_rate)
-                if "end" in time_range
-                else len(audio_data)
+            end_sample = int(
+                time_range.get("end", len(audio_data) / sample_rate) * sample_rate
             )
             end_sample = min(end_sample, len(audio_data))
-
             audio_data = audio_data[start_sample:end_sample]
             logger.info(
                 f"Sliced audio from {start_sample/sample_rate:.2f}s to {end_sample/sample_rate:.2f}s"
             )
 
-        duration = len(audio_data) / sample_rate
+        # Drop last sample once if odd-length
+        if len(audio_data) % 2 != 0:
+            audio_data = audio_data[:-1]
+            logger.info("Dropped last sample to enforce even length for FFT.")
 
-        # Compute file stats once and pack extra metadata
-        file_stats = os.stat(file_path)
-        loader_metadata: LoaderMetadata = {  # annotated with LoaderMetadata type
-            "filename": Path(file_path).name,
-            "format": Path(file_path).suffix[1:],
+        validate_audio_signal(audio_data, sample_rate)
+
+        # Precompute file metadata once
+        path_obj = Path(file_path)
+        file_stats = path_obj.stat()
+        loader_metadata: LoaderMetadata = {
+            "filename": path_obj.name,
+            "format": path_obj.suffix[1:],
             "size_mb": file_stats.st_size / (1024**2),
             "created_date": file_stats.st_ctime,
             "mime_type": mimetypes.guess_type(file_path)[0] or "unknown",
@@ -95,14 +103,8 @@ def load_and_preprocess_audio(
             "sample_rate": sample_rate,
         }
 
-        # In-place even-length adjustment: instead of padding, drop the last sample if odd.
-        if len(audio_data) % 2 != 0:
-            audio_data = audio_data[:-1]  # Drop one sample to avoid extra allocation.
-            logger.info("Dropped last sample to enforce even length for FFT.")
-
-        # Combine empty/silent check with signal energy check to reduce redundancy
         signal_energy = np.sum(audio_data**2)
-        if not np.any(audio_data) or signal_energy < 1e-6:
+        if signal_energy < 1e-6:
             raise AudioValidationError(
                 message="Invalid audio content",
                 parameter="signal_energy",
@@ -110,14 +112,13 @@ def load_and_preprocess_audio(
                 actual=signal_energy,
             )
 
-        # Calculate minimum required samples for pitch estimation
-        min_samples = int(sample_rate * 0.1)  # At least 100ms of audio
-
+        min_samples = int(sample_rate * 0.1)
         if len(audio_data) < min_samples:
             raise ValueError(
                 f"Audio file too short. Minimum length required: {min_samples/sample_rate:.2f} seconds"
             )
 
+        duration = len(audio_data) / sample_rate
         logger.info("Audio loaded successfully. Sample rate: %dHz", sample_rate)
         return audio_data, sample_rate, loader_metadata, duration
 
@@ -129,4 +130,5 @@ def load_and_preprocess_audio(
             filepath=file_path,
             operation="process",
             error=str(e),
+            suggestion="Try checking file permissions and disk space",
         ) from e
