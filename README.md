@@ -279,7 +279,13 @@ audiopro/
         │   ├── extractor.py        # Feature extraction 
         │   ├── metadata.py         # File metadata extraction
         │   ├── models.py           # Data model definitions
-        │   └── processors.py       # Frame feature extraction
+        │   ├── processors.py       # Frame feature extraction
+        │   └── validator.py        # Audio validation utilities
+        │
+        ├── errors/                 # Custom exception definitions
+        │   ├── __init__.py
+        │   ├── exceptions.py      # Audio processing exceptions
+        │   └── tracking.py        # Error tracking utilities
         │
         ├── output/                 # Output handling
         │   ├── __init__.py
