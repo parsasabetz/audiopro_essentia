@@ -1,3 +1,17 @@
+## 0.13.0 (2025-02-10)
+
+### Feat
+
+- **output**: add `--gzip` option for enabling gzip compression in `msgpack` output
+- **output**: add gzip compression option for msgpack output in `write_output` function
+- **package**: update package name to `AudioPro` in `pyproject.toml` and `setup.py`
+- **errors**: enhance `AudioProcessingError` message formatting for better debugging
+- **docs**: update README to include file validation and partial processing features
+- **docs**: add audio validation utilities and update README structure
+- **types, docs**: enhance MIME type handling with autocomplete support in `TypedDicts`
+- **audio_loader**: enhance audio loading with validation and improved metadata handling
+- add audio file validation utilities and enhance module exports
+
 ## 0.12.0 (2025-02-05)
 
 ### Feat
