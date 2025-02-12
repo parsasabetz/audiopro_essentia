@@ -10,8 +10,11 @@ from .types import (
     FrequencyBands,
     QualityMetrics,
     LoaderMetadata,
+    AVAILABLE_FEATURES,
+    create_feature_config,
 )
 from .modules import _write_json, _write_msgpack
+
 
 __all__ = [
     "write_output",
@@ -25,4 +28,6 @@ __all__ = [
     "_write_json",
     "_write_msgpack",
     "LoaderMetadata",
+    "AVAILABLE_FEATURES",
+    "create_feature_config",
 ]
