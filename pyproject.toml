@@ -27,7 +27,7 @@ dependencies = [
     "tomlkit==0.13.2",
     "wcwidth==0.2.13",
 ]
-name = "AudioPro"
+name = "audiopro"
 version = "0.13.0"
 authors = [{ name = "Parsa Sabet", email = "parsa2003sabet@icloud.com" }]
 keywords = [
