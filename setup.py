@@ -6,13 +6,13 @@ The `setup()` function is called when this script is run as the main module.
 """
 
 # imports
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 
 if __name__ == "__main__":
     setup(
         name="audiopro",
         version="0.13.0",
-        packages=find_packages(where="src"),
+        packages=find_namespace_packages(where="src", include=["audiopro*"]),
         package_dir={"": "src"},
     )

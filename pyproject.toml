@@ -44,4 +44,8 @@ requires-python = "==3.12.6"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["audiopro"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["audiopro*"]
+namespaces = true
