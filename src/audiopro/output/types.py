@@ -60,7 +60,7 @@ class TimeRange(TypedDict, total=False):
         end: Optional end time in seconds. If not provided, processes until the end.
     """
 
-    start: float
+    start: Optional[float]
     end: Optional[float]
 
 
@@ -202,10 +202,7 @@ class LoaderMetadata(TypedDict):
         format (str): Audio file format (e.g., 'wav', 'mp3').
         size_mb (float): File size in megabytes.
         created_date (float): File creation timestamp.
-        mime_type (MimeType): MIME type of the audio file.
-        md5_hash (str): MD5 hash of file contents.
-        bit_rate (int): Audio bit rate in bits per second.
-        codec (str): Audio codec used for encoding.
+        mime_type (str): MIME type of the audio file.
         channels (int): Number of audio channels.
         sample_rate (int): Sample rate in Hz.
     """
@@ -214,9 +211,6 @@ class LoaderMetadata(TypedDict):
     format: str
     size_mb: float
     created_date: float  # timestamp
-    mime_type: MimeType
-    md5_hash: str
-    bit_rate: int
-    codec: str
+    mime_type: str
     channels: int
     sample_rate: int
