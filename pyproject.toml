@@ -52,7 +52,7 @@ keywords = [
 description = "Multi-thread audio processing with performance monitoring library, with parallel processing and real-time monitoring. Using the AudioFlux library."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = "==3.12.6"
+requires-python = ">3.12"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
