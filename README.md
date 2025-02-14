@@ -4,7 +4,7 @@ A high-performance audio processing library with built-in performance monitoring
 
 ## Installation
 
-Ensure you have Python 3.12.6 installed. Install dependencies using pip:
+Ensure you have Python 3.12 or later installed. Install dependencies using pip:
 
 ```bash
 pip install -r requirements.txt
@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 **Requirements:**
 
-- Python 3.12.6
+- Python 3.12 or later
 - For Apple Silicon users: `xcode-select --install` may be required
 
 ```bash
