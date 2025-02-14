@@ -1,10 +1,10 @@
 # AudioPro
 
-A high-performance audio processing library with built-in performance monitoring.
+A high-performance audio processing library with built-in performance monitoring, using Essentia C++ library.
 
 ## Installation
 
-Ensure you have Python 3.7 or higher installed. Install dependencies using pip:
+Ensure you have Python 3.12.6 installed. Install dependencies using pip:
 
 ```bash
 pip install -r requirements.txt
@@ -13,7 +13,7 @@ pip install -r requirements.txt
 - This project uses `essentia` for audio processing and employs multiprocessing for performance optimization.
 
 **Requirements:**
-- Python 3.12 or higher
+- Python 3.12.6
 - For Apple Silicon users: `xcode-select --install` may be required
 
 ```bash
