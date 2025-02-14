@@ -13,6 +13,7 @@ pip install -r requirements.txt
 - This project uses `essentia` for audio processing and employs multiprocessing for performance optimization.
 
 **Requirements:**
+
 - Python 3.12.6
 - For Apple Silicon users: `xcode-select --install` may be required
 
@@ -23,6 +24,7 @@ pip install git+ssh://git@github.com/parsasabetz/audiopro.git
 ## Usage
 
 ### Command Line Usage
+
 ```bash
 # Analyze all features (creates output.msgpack)
 python -m audiopro input.wav output
@@ -64,6 +66,7 @@ python -m audiopro input.wav output --start 10.0
 ```
 
 ### Programmatic Usage
+
 ```python
 import asyncio
 from audiopro import analyze_audio, FeatureConfig
@@ -105,11 +108,14 @@ results = await batch_process_audio(
 ```
 
 ### Output Format
+
 The library supports two output formats:
+
 - `msgpack` (default): Binary MessagePack format for efficient storage (creates `.msgpack` files)
 - `json`: Human-readable JSON format (creates `.json` files)
 
 **Important**: Never include the file extension in the output path. Instead:
+
 1. Provide the output path without extension
 2. Use `output_format` or `--format` to specify the format
 3. The library will automatically add the correct extension
@@ -117,6 +123,7 @@ The library supports two output formats:
 **Note**: Gzip compression applies only to the msgpack format.
 
 For example:
+
 ```python
 # INCORRECT ❌
 await analyze_audio(
@@ -134,7 +141,9 @@ await analyze_audio(
 ```
 
 ### Feature Selection
+
 You can selectively enable/disable any of these features:
+
 - `rms`: Root Mean Square energy value
 - `volume`: Volume level in decibels (dBFS), computed as `20 * log10(rms)`
 - `spectral_centroid`: Weighted mean of frequencies
@@ -147,11 +156,13 @@ You can selectively enable/disable any of these features:
 - `chroma`: Distribution of spectral energy across pitch classes
 
 Feature selection can be done in three ways:
+
 1. Pass `None` as `feature_config` to compute all features (default behavior)
 2. Include only the features you want with `True` values
 3. Explicitly disable features with `False` values (optional)
 
 **Important:**  
+
 - The `feature_config` argument controls which features to compute.  
   - If you pass `None`, the analysis computes all features.  
   - If you pass a dictionary with selected features enabled, only those will be computed.  
@@ -160,6 +171,7 @@ Feature selection can be done in three ways:
   - An empty list indicates that all available features were computed.
 
 Example configurations:
+
 ```python
 from audiopro import FeatureConfig
 
@@ -200,6 +212,7 @@ feature_config: FeatureConfig = {
 ```
 
 ### Output Structure
+
 ```python
 {
     "metadata": {
@@ -269,7 +282,8 @@ feature_config: FeatureConfig = {
 - **Batch Processing**: Process multiple files concurrently with error handling
 
 ## Project Structure
-```
+
+```folder-structure
 audiopro/
 └── src/
     └── audiopro/
@@ -319,6 +333,7 @@ audiopro/
 ## Development
 
 ### Setting up development environment
+
 ```bash
 git clone git@github.com:parsasabetz/audiopro.git
 cd audiopro
@@ -328,17 +343,21 @@ pip install -e .
 ```
 
 ### Commit Convention
+
 Follow the Commitizen format:
-```
+
+```bash
 <type>(<scope>): <subject>
 ```
 
 Make commits using:
+
 ```bash
 git cz
 ```
 
 Version bumping:
+
 ```bash
 cz bump
 ```
