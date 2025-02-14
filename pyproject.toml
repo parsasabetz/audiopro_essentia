@@ -33,11 +33,11 @@ authors = [{ name = "Parsa Sabet", email = "parsa2003sabet@icloud.com" }]
 keywords = [
     "audio",
     "processing",
-    "audio processing with Essentia",
-    "music processing with Essentia",
-    "sound processing with Essentia",
+    "audio processing with AudioFlux",
+    "music processing with AudioFlux",
+    "sound processing with AudioFlux",
 ]
-description = "Multi-thread audio processing with performance monitoring library, with parallel processing and real-time monitoring. Using the Essentia C++ library."
+description = "Multi-thread audio processing with performance monitoring library, with parallel processing and real-time monitoring. Using the AudioFlux library."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = "==3.12.6"
