@@ -1,3 +1,15 @@
+## 0.14.0 (2025-02-14)
+
+### Feat
+
+- **package**: change package name to lowercase in `pyproject.toml`
+- **package**: change package name to lowercase and specify package directory in `setup.py`
+
+### Fix
+
+- **package**: update package discovery to support namespace packages
+- **output**: expose `AVAILABLE_FEATURES` and `create_feature_config` in output module
+
 ## 0.13.0 (2025-02-10)
 
 ### Feat
