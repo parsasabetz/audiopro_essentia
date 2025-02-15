@@ -222,6 +222,7 @@ feature_config: FeatureConfig = {
             "codec": str,
             "size_mb": float,
             "created_date": str,  # Unix timestamp
+            "codec": str,         # Audio codec used
             "mime_type": str,     # MIME type of the file (or "unknown" if not determined)
             "md5_hash": str
         },

@@ -111,6 +111,7 @@ class FileInfo(TypedDict):
     codec: str
     size_mb: float
     created_date: str  # Unix timestamp
+    codec: str # Audio codec
     mime_type: MimeType  # MIME type with autocomplete support
     md5_hash: str
 
@@ -202,6 +203,7 @@ class LoaderMetadata(TypedDict):
         format (str): Audio file format (e.g., 'wav', 'mp3').
         size_mb (float): File size in megabytes.
         created_date (float): File creation timestamp.
+        codec (str): Audio codec used to encode the file.
         mime_type (str): MIME type of the audio file.
         channels (int): Number of audio channels.
         sample_rate (int): Sample rate in Hz.
@@ -211,6 +213,8 @@ class LoaderMetadata(TypedDict):
     format: str
     size_mb: float
     created_date: float  # timestamp
+    codec: str
+    bit_rate: int
     mime_type: str
     channels: int
     sample_rate: int

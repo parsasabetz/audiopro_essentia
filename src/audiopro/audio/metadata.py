@@ -34,8 +34,9 @@ def get_file_metadata(
                 - format (str): The file format (extension).
                 - size_mb (float): The size of the file in megabytes.
                 - created_date (str): The creation date of the file in Unix timestamp format.
+                - codec (str): The codec used to encode the file.
                 - mime_type (str): The MIME type of the file.
-                - sha256_hash (str): The SHA-256 hash of the file.
+                - md5_hash (str): The MD5 hash of the file.
             - audio_info:
                 - duration_seconds (float): The duration of the audio in seconds.
                 - sample_rate (int): The sample rate of the audio.
@@ -61,9 +62,18 @@ def get_file_metadata(
     rms_value = float(np.sqrt(np.mean(audio_data**2)))
 
     return {
-        "file_info": loader_metadata,  # Simply use the loader metadata directly
+        "file_info": {
+            "filename": loader_metadata["filename"],
+            "format": loader_metadata["format"],
+            "size_mb": loader_metadata["size_mb"],
+            "created_date": loader_metadata["created_date"],
+            "codec": loader_metadata["codec"],
+            "mime_type": loader_metadata["mime_type"],
+            "md5_hash": loader_metadata["md5_hash"],
+        },
         "audio_info": {
             "duration_seconds": audio_data.shape[0] / (sample_rate * channels),
+            "bit_rate": loader_metadata["bit_rate"],
             "sample_rate": sample_rate,
             "channels": channels,
             "peak_amplitude": peak_amplitude,
