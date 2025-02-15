@@ -64,8 +64,16 @@ def process_frame(
         try:
             frame_index, frame = frame_data
 
+            # Determine which transforms are needed
+            compute_spectrum = bool(
+                SPECTRAL_FEATURES & (feature_config or AVAILABLE_FEATURES)
+            )
+            compute_mfcc = "mfcc" in (feature_config or AVAILABLE_FEATURES)
+
             # Get cached transforms for this sample rate
-            _spectrum_transform, mfcc_transform = get_transforms(sample_rate)
+            _spectrum_transform, mfcc_transform = get_transforms(
+                sample_rate, compute_spectrum, compute_mfcc
+            )
 
             try:
                 # Basic validation
@@ -106,7 +114,7 @@ def process_frame(
                     feature_values["rms"] = float(rms_tensor)
 
                 # Compute spectral features if needed
-                if bool(SPECTRAL_FEATURES & (feature_config or AVAILABLE_FEATURES)):
+                if compute_spectrum:
                     # Create spectrogram and process spectral features
                     spec_tensor = compute_spectrogram(frame_tensor)
                     feature_values.update(
