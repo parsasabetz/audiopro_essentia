@@ -4,10 +4,12 @@ from typing import Optional, Tuple
 # Standard library imports
 from pathlib import Path
 import mimetypes
+import hashlib
 import numpy as np
 
 # Third-party scientific/audio processing libraries
-import essentia.standard as es
+import torch
+import torchaudio
 
 # Local application imports
 from audiopro.utils.logger import get_logger
@@ -58,10 +60,29 @@ def load_and_preprocess_audio(
 
         logger.info("Loading audio file: %s", file_path)
         try:
-            audio_data, sample_rate, channels, md5, bit_rate, codec = es.AudioLoader(
-                filename=file_path, computeMD5=True
-            )()
-        except RuntimeError as e:
+            # Load audio using torchaudio
+            waveform, sample_rate = torchaudio.load(file_path)
+
+            # Convert to mono by averaging channels if necessary
+            if waveform.shape[0] > 1:
+                waveform = torch.mean(waveform, dim=0, keepdim=True)
+
+            # Convert to numpy array
+            audio_data = waveform.squeeze().numpy()
+
+            # Get audio info using torchaudio
+            info = torchaudio.info(file_path)
+            bit_rate = (
+                info.bits_per_sample if hasattr(info, "bits_per_sample") else None
+            )
+            codec = info.encoding if hasattr(info, "encoding") else None
+            channels = waveform.shape[0]
+
+            # Calculate MD5 hash of the file
+            with open(file_path, "rb") as f:
+                md5 = hashlib.md5(f.read()).hexdigest()
+
+        except Exception as e:
             raise AudioIOError(
                 message="File appears corrupted or invalid audio format",
                 filepath=file_path,
