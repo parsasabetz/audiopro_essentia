@@ -27,7 +27,22 @@ DEVICE: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cp
 
 
 def compute_spectrogram(frame_tensor: torch.Tensor) -> torch.Tensor:
-    """Compute spectrogram from frame tensor."""
+    """Computes the spectrogram of a given audio frame tensor.
+
+    This function takes an audio frame tensor as input, applies a Short-Time Fourier Transform (STFT)
+    to convert it into the frequency domain, and then computes the power spectrogram.
+    The spectrogram is then normalized.
+
+    Args:
+        frame_tensor (torch.Tensor): A tensor representing the audio frame.
+            Expected shape is (1, frame_length) where frame_length is the length of the audio frame.
+
+    Returns:
+        torch.Tensor: A tensor representing the normalized spectrogram of the audio frame.
+            The shape of the output tensor is (num_freqs, num_frames), where num_freqs is the number
+            of frequency bins and num_frames is the number of time frames.
+    """
+
     logger.debug(f"Input frame tensor shape before transform: {frame_tensor.shape}")
 
     window = torch.hann_window(FRAME_LENGTH, device=DEVICE)
@@ -54,7 +69,25 @@ def compute_spectrogram(frame_tensor: torch.Tensor) -> torch.Tensor:
 
 
 def normalize_spectrogram(spec_tensor: torch.Tensor) -> torch.Tensor:
-    """Normalize spectrogram shape and dimensions."""
+    """Normalizes a spectrogram tensor to a standard format.
+
+    This function takes a spectrogram tensor as input and normalizes it to ensure
+    it has the expected dimensions. Specifically, it ensures that the tensor has
+    the correct number of frequency bins based on the FRAME_LENGTH constant.
+
+    Args:
+        spec_tensor (torch.Tensor): The input spectrogram tensor. It can be
+            either 2D (freq, time) or 3D (freq, time, channels).
+
+    Returns:
+        torch.Tensor: The normalized spectrogram tensor.
+
+    Raises:
+        Logs an error message if the number of frequency bins in the input tensor
+        does not match the expected number based on FRAME_LENGTH.  If the number
+        of bins is less than expected, the tensor is padded. If it's greater,
+        the tensor is truncated.
+    """
     # Extract the frequency dimension correctly
     if spec_tensor.dim() == 3:  # (freq, time, 2) or (freq, time, real/imag)
         spec_tensor = spec_tensor[..., 0]  # Take first time frame
@@ -86,7 +119,22 @@ def process_spectral_features(
     mfcc_transform: torch.nn.Module,
     frame_tensor: torch.Tensor,
 ) -> Dict[str, float]:
-    """Process spectral features from spectrogram."""
+    """Compute spectral features from a spectrogram.
+
+    Args:
+        spec_tensor (torch.Tensor): Spectrogram tensor.
+        sample_rate (int): Sample rate of the audio.
+        feature_config (Optional[FeatureConfig]): Configuration for feature extraction.
+        mfcc_transform (torch.nn.Module): MFCC transformation module.
+        frame_tensor (torch.Tensor): The original audio frame tensor.
+
+    Returns:
+        Dict[str, float]: Dictionary containing computed spectral features.
+
+    Raises:
+        SpectralFeatureError: If the spectrogram contains only zeros.
+    """
+
     feature_values = {}
     logger.debug(f"Final spectrogram shape: {spec_tensor.shape}")
 
@@ -154,7 +202,19 @@ def process_mfcc_and_frequency_bands(
     spec_tensor: torch.Tensor,
     sample_rate: int,
 ) -> None:
-    """Process MFCC and frequency bands features."""
+    """Processes audio frames to extract MFCC coefficients and frequency bands,
+    and stores them in the feature_values dictionary.
+
+    Args:
+        feature_values (Dict[str, float]): A dictionary to store the computed features.
+        feature_config (Optional[FeatureConfig]): Configuration for feature extraction.
+            If None, uses AVAILABLE_FEATURES.
+        mfcc_transform (torch.nn.Module): A PyTorch module for computing MFCCs.
+        frame_tensor (torch.Tensor): A PyTorch tensor representing the audio frame.
+        spec_tensor (torch.Tensor): A PyTorch tensor representing the spectrogram of the audio frame.
+        sample_rate (int): The sample rate of the audio.
+    """
+
     if "mfcc" in (feature_config or AVAILABLE_FEATURES):
         try:
             mfcc_coeffs = mfcc_transform(frame_tensor).squeeze()
