@@ -10,6 +10,7 @@ import numpy as np
 # Third-party scientific/audio processing libraries
 import torch
 import torchaudio
+import ffmpeg
 
 # Local application imports
 from audiopro.utils.logger import get_logger
@@ -70,13 +71,16 @@ def load_and_preprocess_audio(
             # Convert to numpy array
             audio_data = waveform.squeeze().numpy()
 
-            # Get audio info using torchaudio
-            info = torchaudio.info(file_path)
-            bit_rate = (
-                info.bits_per_sample if hasattr(info, "bits_per_sample") else None
-            )
-            codec = info.encoding if hasattr(info, "encoding") else None
-            channels = waveform.shape[0]
+            # Get audio info using ffmpeg
+            probe = ffmpeg.probe(file_path)
+            format_info = probe['format']
+            stream_info = probe['streams'][0]  # Assuming the first stream is the audio stream
+            bit_rate = int(format_info.get('bit_rate', 0))
+            codec = stream_info.get('codec_name', 'UNKNOWN')
+            channels = int(stream_info.get('channels', 1))
+
+            # Log extracted metadata for debugging
+            logger.debug(f"Extracted metadata: bit_rate={bit_rate}, codec={codec}, channels={channels}")
 
             # Calculate MD5 hash of the file
             with open(file_path, "rb") as f:
