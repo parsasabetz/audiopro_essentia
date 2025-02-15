@@ -17,7 +17,16 @@ DEVICE: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cp
 
 @lru_cache(maxsize=8)
 def get_transforms(sample_rate: int):
-    """Get all audio transforms for a given sample rate."""
+    """
+    Generates and returns a Spectrogram and MFCC transformation.
+
+    Args:
+        sample_rate (int): The sample rate of the audio.
+
+    Returns:
+        tuple[torch.nn.Module, torch.nn.Module]: A tuple containing the Spectrogram and MFCC transformations.
+    """
+
     spectrum_transform = T.Spectrogram(
         n_fft=FRAME_LENGTH,
         win_length=FRAME_LENGTH,  # Match window length with FFT size
