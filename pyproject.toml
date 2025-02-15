@@ -45,11 +45,11 @@ authors = [{ name = "Parsa Sabet", email = "parsa2003sabet@icloud.com" }]
 keywords = [
     "audio",
     "processing",
-    "audio processing with AudioFlux",
-    "music processing with AudioFlux",
-    "sound processing with AudioFlux",
+    "audio processing with TorchAudio",
+    "music processing with TorchAudio",
+    "sound processing with TorchAudio",
 ]
-description = "Multi-thread audio processing with performance monitoring library, with parallel processing and real-time monitoring. Using the AudioFlux library."
+description = "Multi-thread audio processing with performance monitoring library, with parallel processing and real-time monitoring. Using the TorchAudio library."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">3.12"

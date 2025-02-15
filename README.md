@@ -1,6 +1,6 @@
 # AudioPro
 
-A high-performance audio processing library with built-in performance monitoring, using AudioFlux library.
+A high-performance audio processing library with built-in performance monitoring, using TorchAudio library.
 
 ## Installation
 
@@ -10,7 +10,7 @@ Ensure you have Python 3.12 or later installed. Install dependencies using pip:
 pip install -r requirements.txt
 ```
 
-- This project uses `AudioFlux` for audio processing and employs multiprocessing for performance optimization.
+- This project uses `TorchAudio` for audio processing and employs multiprocessing for performance optimization.
 
 **Requirements:**
 
@@ -271,7 +271,7 @@ feature_config: FeatureConfig = {
 ## Features
 
 - **Selective Feature Computation**: Choose which audio features to compute to optimize processing time and output size
-- **Audio Analysis**: Extract tempo, beats, and spectral features using `AudioFlux`
+- **Audio Analysis**: Extract tempo, beats, and spectral features using `TorchAudio`
 - **Performance Monitoring**: Built-in CPU and memory usage tracking leveraging multiprocessing
 - **Multiprocessing**: Parallel processing for faster analysis of large audio files
 - **Flexible Output**: Choose between JSON and MessagePack formats
