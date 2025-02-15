@@ -145,7 +145,9 @@ def extract_features(
         logger.info(f"Audio length: {audio_data.shape[0]} samples")
         logger.info(f"Audio duration: {duration:.2f} seconds")
         if start_sample > 0:
-            logger.info(f"Starting from sample {start_sample} ({start_sample/sample_rate:.3f}s)")
+            logger.info(
+                f"Starting from sample {start_sample} ({start_sample/sample_rate:.3f}s)"
+            )
 
         # Calculate expected frames based on hop length
         n_frames = 1 + (audio_data.shape[0] - FRAME_LENGTH) // HOP_LENGTH
@@ -196,6 +198,7 @@ def extract_features(
                     ):
                         if error_count > MAX_ERRORS:
                             raise ExtractionPipelineError(
+                                message="Too many errors in pipeline",
                                 error_count=error_count,
                                 total_frames=n_frames,
                                 error_rate=f"{(error_count/n_frames)*100:.2f}%",
