@@ -9,6 +9,7 @@ import torchaudio.transforms as T
 
 # local imports
 from audiopro.utils.logger import get_logger
+from audiopro.utils.constants import HOP_LENGTH
 
 # setup logger
 logger = get_logger(__name__)
@@ -112,8 +113,10 @@ def extract_rhythm(audio: np.ndarray) -> Tuple[float, np.ndarray]:
         onset_env = (onset_env - onset_env.mean()) / (onset_env.std() + 1e-8)
 
         # Parameters for beat tracking
-        frame_length = int(0.1 * tracker.sample_rate / 512)  # 100ms window
-        hop_length = 512  # Same as in mel spectrogram
+        frame_length = int(
+            0.1 * tracker.sample_rate / HOP_LENGTH
+        )  # 100ms window using our hop length
+        hop_length = HOP_LENGTH  # Use HOP_LENGTH constant instead of hardcoded value
 
         # Compute autocorrelation of onset envelope
         def autocorr(x):
