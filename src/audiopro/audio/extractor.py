@@ -110,7 +110,11 @@ def extract_features(
             audio_data = audio_data.astype(np.float32)
 
         # Reshape interleaved multi-channel audio if needed
-        if audio_data.ndim == 1 and channels > 1:
+        if audio_data.ndim == 1:
+            # Audio already mono; no reshaping needed for processing.
+            pass
+        else:
+            # Only perform reshaping if audio data is interleaved multi-channel
             samples_per_channel = audio_data.shape[0] // channels
             audio_data = audio_data[: samples_per_channel * channels].reshape(
                 (samples_per_channel, channels)

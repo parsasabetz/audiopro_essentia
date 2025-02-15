@@ -61,30 +61,34 @@ def load_and_preprocess_audio(
 
         logger.info("Loading audio file: %s", file_path)
         try:
-            # Load audio using torchaudio
-            waveform, sample_rate = torchaudio.load(file_path)
-
-            # Convert to mono by averaging channels if necessary
-            if waveform.shape[0] > 1:
-                waveform = torch.mean(waveform, dim=0, keepdim=True)
-
-            # Convert to numpy array
-            audio_data = waveform.squeeze().numpy()
+            # Force channels_first=False to get waveform shape (time, channels)
+            waveform, sample_rate = torchaudio.load(file_path, channels_first=False)
 
             # Get audio info using ffmpeg
             probe = ffmpeg.probe(file_path)
-            format_info = probe['format']
-            stream_info = probe['streams'][0]  # Assuming the first stream is the audio stream
-            bit_rate = int(format_info.get('bit_rate', 0))
-            codec = stream_info.get('codec_name', 'UNKNOWN')
-            channels = int(stream_info.get('channels', 1))
+            format_info = probe["format"]
+            stream_info = probe["streams"][
+                0
+            ]  # Assuming the first stream is the audio stream
+            bit_rate = int(format_info.get("bit_rate", 0))
+            codec = stream_info.get("codec_name", "UNKNOWN")
+            original_channels = int(stream_info.get("channels", 1))
 
             # Log extracted metadata for debugging
-            logger.debug(f"Extracted metadata: bit_rate={bit_rate}, codec={codec}, channels={channels}")
+            logger.info(
+                f"Extracted metadata: bit_rate={bit_rate}, codec={codec}, channels={original_channels}"
+            )
 
             # Calculate MD5 hash of the file
             with open(file_path, "rb") as f:
                 md5 = hashlib.md5(f.read()).hexdigest()
+
+            # Convert to mono by averaging channels if necessary
+            if waveform.ndim > 1 and waveform.shape[1] > 1:
+                waveform = torch.mean(waveform, dim=1)
+
+            # Convert to numpy array
+            audio_data = waveform.numpy()
 
         except Exception as e:
             raise AudioIOError(
@@ -102,7 +106,7 @@ def load_and_preprocess_audio(
             end_sample = min(end_sample, len(audio_data))
             audio_data = audio_data[start_sample:end_sample]
             logger.info(
-                f"Sliced audio from {start_sample/sample_rate:.2f}s to {end_sample/sample_rate:.2f}s"
+                f"Sliced audio from {start_sample / sample_rate:.2f}s to {end_sample / sample_rate:.2f}s"
             )
 
         # Drop last sample once if odd-length
@@ -124,7 +128,7 @@ def load_and_preprocess_audio(
             "md5_hash": md5,
             "bit_rate": bit_rate,
             "codec": codec,
-            "channels": channels,
+            "channels": original_channels,  # use original channel count in metadata
             "sample_rate": sample_rate,
         }
 
@@ -140,7 +144,7 @@ def load_and_preprocess_audio(
         min_samples = int(sample_rate * 0.1)
         if len(audio_data) < min_samples:
             raise ValueError(
-                f"Audio file too short. Minimum length required: {min_samples/sample_rate:.2f} seconds"
+                f"Audio file too short. Minimum length required: {min_samples / sample_rate:.2f} seconds"
             )
 
         duration = len(audio_data) / sample_rate
