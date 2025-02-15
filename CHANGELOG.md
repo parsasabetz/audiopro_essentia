@@ -1,3 +1,37 @@
+## 1.1.0 (2025-02-15)
+
+### Feat
+
+- add frequency and spectrogram processing modules with optimized constants and error handling
+- refactor rhythm extraction to use TorchAudio for beat tracking and processing
+- replace `essentia` with `torchaudio` for audio loading and processing
+- add `SpectrogramConfig` class for spectrogram generation and validation
+
+### Fix
+
+- improve logging for feature extraction and add error message for pipeline failures
+
+### Refactor
+
+- update requirements to replace `audioflux` with `torchaudio`, add `ffmpeg-python` and add additional dependencies
+- update metadata structure to include audio `codec` and improve documentation
+- replace `torchaudio` with `ffmpeg` for audio metadata extraction and improve logging
+- improve docstring for `get_transforms` function to enhance clarity and detail
+- enhance docstrings for `spectrogram` processing functions to improve clarity and usability
+- optimize audio processing pipeline for improved performance and maintainability
+- update audio module exports to include spectrogram processing and remove unused frequency functions
+- remove redundant frame generator function and import `create_frame_generator` for improved memory efficiency
+- implement memory-efficient audio frame generator using constants for frame and hop lengths
+- enhance error handling in feature extraction and remove unused `total_frames` parameter
+- simplify frame generator by removing `total_frames` parameter and optimizing memory usage
+- streamline feature extraction by using `FRAME_LENGTH` for FFT size and optimizing worker calculation, refactor to use constants instead of redeclaring them
+- use constant for hop length in rhythm extraction
+- update `SpectrogramConfig` to use constants for FFT size and hop length
+- Refactor to use TorchAudio, improve logging and simplify feature extraction process
+- update `TimeRange` and `LoaderMetadata` types for optional fields and simplified `mime_type`
+
+## 1.0.0 (2025-02-15)
+
 ## 0.14.0 (2025-02-14)
 
 ### Feat
