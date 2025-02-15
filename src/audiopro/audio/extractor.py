@@ -199,7 +199,6 @@ def extract_features(
                             raise ExtractionPipelineError(
                                 message="Too many errors in pipeline",
                                 error_count=error_count,
-                                total_frames=n_frames,
                                 error_rate=f"{(error_count / n_frames) * 100:.2f}%",
                             )
 
@@ -228,30 +227,30 @@ def extract_features(
                                         f"Processed {processed_frames}/{n_frames} frames"
                                     )
 
-                        except mp.TimeoutError as e:
-                            logger.error(
-                                f"Batch processing timeout at frame {processed_frames}"
-                            )
-                            error_count += 1
+                        except (
+                            mp.TimeoutError,
+                            mp.ProcessError,
+                            ValueError,
+                            TypeError,
+                            RuntimeError,
+                        ) as e:
+                            logger.error(f"Batch processing error: {str(e)}")
+                            error_count += len(batch_frames)
                             if error_count > MAX_ERRORS:
                                 raise ExtractionPipelineError(
-                                    "Too many timeout errors"
+                                    message="Too many errors in pipeline",
+                                    error_count=error_count,
+                                    error_rate=f"{(error_count / n_frames) * 100:.2f}%",
                                 ) from e
-                        except mp.ProcessError as e:
-                            logger.error(f"Process error in batch: {str(e)}")
-                            error_count += len(batch_frames)
-                        except (ValueError, TypeError, RuntimeError) as e:
-                            logger.exception(f"Batch processing error: {str(e)}")
-                            error_count += len(batch_frames)
 
                         # Release batch_frames immediately after processing for better memory reclamation.
                         del batch_frames
                         # Optionally, force GC if under heavy load:
-                        gc.collect()
+                        if processed_frames % (BATCH_SIZE * 10) == 0:
+                            gc.collect()
 
                     # Force garbage collection periodically
-                    if processed_frames % (BATCH_SIZE * 10) == 0:
-                        gc.collect()
+                    gc.collect()
 
         except ExtractionPipelineError:
             raise
@@ -260,7 +259,6 @@ def extract_features(
             raise ExtractionPipelineError(
                 message="Pipeline execution failed",
                 error_count=error_count,
-                total_frames=n_frames,
                 original_error=str(e),
             ) from e
 
