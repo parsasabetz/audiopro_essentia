@@ -89,7 +89,7 @@ def extract_features(
         on_feature: Optional callback for immediate feature processing
         feature_config: Optional configuration specifying which features to compute.
                       If None, all features will be computed.
-        start_sample: Start sample to offset the frame time (default: 0)
+        start_sample: Sample offset from the start of the audio file (default: 0)
 
     Returns:
         List of features in native Python types if no `on_feature` callback is provided; otherwise, an empty list
@@ -144,6 +144,8 @@ def extract_features(
         duration = audio_data.shape[0] / sample_rate
         logger.info(f"Audio length: {audio_data.shape[0]} samples")
         logger.info(f"Audio duration: {duration:.2f} seconds")
+        if start_sample > 0:
+            logger.info(f"Starting from sample {start_sample} ({start_sample/sample_rate:.3f}s)")
 
         # Calculate expected frames based on hop length
         n_frames = 1 + (audio_data.shape[0] - FRAME_LENGTH) // HOP_LENGTH
@@ -156,19 +158,13 @@ def extract_features(
         else:
             logger.info("Computing all available features")
 
-        # Precompute arrays once and ensure they're float32
-        window_func = np.hanning(FRAME_LENGTH).astype(np.float32)
-        freq_array = np.fft.rfftfreq(FRAME_LENGTH, d=1 / sample_rate).astype(np.float32)
-
         # Create the process function once (constant across batches)
         process_func = partial(
             process_frame,
             sample_rate=sample_rate,
             frame_length=FRAME_LENGTH,
-            window_func=window_func,
-            freq_array=freq_array,
             feature_config=feature_config,
-            start_sample=start_sample,  # Pass start sample to process_frame
+            start_sample=start_sample,  # Pass start_sample to process_frame
         )
 
         # Optimal resource allocation
@@ -200,7 +196,6 @@ def extract_features(
                     ):
                         if error_count > MAX_ERRORS:
                             raise ExtractionPipelineError(
-                                message="Excessive processing errors",
                                 error_count=error_count,
                                 total_frames=n_frames,
                                 error_rate=f"{(error_count/n_frames)*100:.2f}%",
@@ -235,7 +230,7 @@ def extract_features(
                             logger.error(
                                 f"Batch processing timeout at frame {processed_frames}"
                             )
-                            error_count += len(batch_frames)
+                            error_count += 1
                             if error_count > MAX_ERRORS:
                                 raise ExtractionPipelineError(
                                     "Too many timeout errors"
@@ -278,18 +273,12 @@ def extract_features(
     finally:
         if error_stats.total_errors > 0:
             logger.info(f"Error statistics:\n{error_stats.get_summary()}")
-        # Clean up
-        del window_func, freq_array
         gc.collect()
 
-    completion_ratio = processed_frames / n_frames
+    completion_ratio = processed_frames / n_frames if n_frames > 0 else 0
     if completion_ratio < 0.97:  # Allow for up to 3% frame loss
         logger.warning(
             f"Only processed {completion_ratio * 100:.1f}% of expected frames"
         )
 
-    if not on_feature:
-        if not valid_features:
-            raise ValueError("No valid features could be extracted")
-        return valid_features  # Already in native types since we used to_dict()
-    return []
+    return valid_features if not on_feature else []
