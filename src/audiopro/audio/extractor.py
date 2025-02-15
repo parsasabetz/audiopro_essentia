@@ -43,7 +43,7 @@ logger = get_logger()
 
 
 def create_frame_generator(
-    audio_data: NDArray[np.float32], total_samples: int, total_frames: int
+    audio_data: NDArray[np.float32], total_samples: int
 ) -> Iterator[Tuple[int, NDArray[np.float32]]]:
     """
     Creates a memory-efficient generator for audio frames.
@@ -51,20 +51,20 @@ def create_frame_generator(
     Args:
         audio_data: The input audio data
         total_samples: Total number of samples in audio
-        total_frames: Total number of frames to process
 
     Yields:
         Tuples of (frame_index, frame_data)
     """
-    for frame_idx in range(total_frames):
-        start_idx = frame_idx * HOP_LENGTH
-        if (start_idx + FRAME_LENGTH) > total_samples:
-            break
-        frame_data = audio_data[start_idx : start_idx + FRAME_LENGTH].copy()
+    # Pre-calculate the stop index for range to avoid per-iteration calculation
+    stop_idx = total_samples - FRAME_LENGTH + 1
+    # Use numpy's strided view for efficient frame extraction
+    for frame_idx in range(0, stop_idx, HOP_LENGTH):
+        # Use a view instead of a copy for better memory efficiency
+        # Only copy if the frame will be sent to another process
+        frame_data = audio_data[frame_idx : frame_idx + FRAME_LENGTH]
         if len(frame_data) == FRAME_LENGTH:
-            yield (frame_idx, frame_data)
-        # Explicitly delete frame data to help garbage collection
-        del frame_data
+            # Only create a copy when yielding since the data will be sent to another process
+            yield (frame_idx // HOP_LENGTH, frame_data.copy())
 
 
 def extract_features(
@@ -188,7 +188,7 @@ def extract_features(
             with error_tracking_context(error_stats):
                 with mp.Pool(processes=MAX_WORKERS) as pool:
                     frames_iter = create_frame_generator(
-                        audio_data, audio_data.shape[0], n_frames
+                        audio_data, audio_data.shape[0]
                     )
 
                     # Process batches until no frames remain

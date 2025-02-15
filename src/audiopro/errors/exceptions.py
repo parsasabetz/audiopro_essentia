@@ -93,14 +93,12 @@ class ExtractionPipelineError(AudioProcessingError):
     Attributes:
         message (str): The error message.
         error_count (Optional[int]): The number of errors encountered during the pipeline execution.
-        total_frames (Optional[int]): The total number of frames processed.
         failed_frames (Optional[list]): A list of frames that failed during processing.
         **kwargs: Additional keyword arguments to include in the error details.
 
     Args:
         message (str): The error message.
         error_count (Optional[int], optional): The number of errors encountered during the pipeline execution. Defaults to None.
-        total_frames (Optional[int], optional): The total number of frames processed. Defaults to None.
         failed_frames (Optional[list], optional): A list of frames that failed during processing. Defaults to None.
         **kwargs: Additional keyword arguments to include in the error details.
     """
@@ -109,13 +107,11 @@ class ExtractionPipelineError(AudioProcessingError):
         self,
         message: str,
         error_count: Optional[int] = None,
-        total_frames: Optional[int] = None,
         failed_frames: Optional[list] = None,
         **kwargs,
     ):
         details = {
             "error_count": error_count,
-            "total_frames": total_frames,
             "failed_frames": failed_frames,
             **kwargs,
         }
