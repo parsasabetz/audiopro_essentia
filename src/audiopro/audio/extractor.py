@@ -146,7 +146,7 @@ def extract_features(
         logger.info(f"Audio duration: {duration:.2f} seconds")
         if start_sample > 0:
             logger.info(
-                f"Starting from sample {start_sample} ({start_sample/sample_rate:.3f}s)"
+                f"Starting from sample {start_sample} ({start_sample / sample_rate:.3f}s)"
             )
 
         # Calculate expected frames based on hop length
@@ -164,14 +164,13 @@ def extract_features(
         process_func = partial(
             process_frame,
             sample_rate=sample_rate,
-            frame_length=FRAME_LENGTH,
             feature_config=feature_config,
             start_sample=start_sample,  # Pass start_sample to process_frame
         )
 
         # Optimal resource allocation
         MAX_WORKERS = min(
-            calculate_max_workers(audio_data.shape[0], FRAME_LENGTH, HOP_LENGTH),
+            calculate_max_workers(audio_data.shape[0]),
             mp.cpu_count(),
         )
         # Optimize chunk size calculation
@@ -201,7 +200,7 @@ def extract_features(
                                 message="Too many errors in pipeline",
                                 error_count=error_count,
                                 total_frames=n_frames,
-                                error_rate=f"{(error_count/n_frames)*100:.2f}%",
+                                error_rate=f"{(error_count / n_frames) * 100:.2f}%",
                             )
 
                         try:

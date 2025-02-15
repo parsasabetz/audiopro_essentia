@@ -33,17 +33,18 @@ logger = get_logger(__name__)
 EPS: float = torch.finfo(torch.float32).eps
 DEVICE: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# FFT size must be power of 2 for efficiency and correct frequency resolution
-N_FFT = 2048  # This will give us 1025 frequency bins (N_FFT//2 + 1)
-WINDOW_FN = torch.hann_window(N_FFT, device=DEVICE)  # Use N_FFT for window size
+# Use FRAME_LENGTH as FFT size (which is 2048)
+WINDOW_FN = torch.hann_window(
+    FRAME_LENGTH, device=DEVICE
+)  # Use FRAME_LENGTH for window size
 
 
 @lru_cache(maxsize=8)
 def get_transforms(sample_rate: int):
     """Get all audio transforms for a given sample rate."""
     spectrum_transform = T.Spectrogram(
-        n_fft=N_FFT,
-        win_length=N_FFT,  # Match window length with FFT size
+        n_fft=FRAME_LENGTH,
+        win_length=FRAME_LENGTH,  # Match window length with FFT size
         hop_length=HOP_LENGTH,
         pad=0,
         window_fn=torch.hann_window,  # Use default hann window
@@ -59,8 +60,8 @@ def get_transforms(sample_rate: int):
         sample_rate=sample_rate,
         n_mfcc=13,
         melkwargs={
-            "n_fft": N_FFT,
-            "win_length": N_FFT,  # Match window length with FFT size
+            "n_fft": FRAME_LENGTH,
+            "win_length": FRAME_LENGTH,  # Match window length with FFT size
             "hop_length": HOP_LENGTH,
             "n_mels": 40,
             "mel_scale": "htk",
@@ -87,8 +88,8 @@ def get_frequency_bins(sample_rate: int) -> NDArray[np.float32]:
         Array of frequency bins
     """
     return np.linspace(
-        0, sample_rate / 2, N_FFT // 2 + 1, dtype=np.float32
-    )  # Use N_FFT instead of FRAME_LENGTH
+        0, sample_rate / 2, FRAME_LENGTH // 2 + 1, dtype=np.float32
+    )  # Use FRAME_LENGTH instead of FRAME_LENGTH
 
 
 def compute_frequency_bands(
@@ -174,7 +175,6 @@ def compute_frequency_bands(
 def process_frame(
     frame_data: Tuple[int, NDArray[np.float32]],
     sample_rate: int,
-    frame_length: int,
     feature_config: Optional[FeatureConfig] = None,
     start_sample: int = 0,
 ) -> Tuple[int, Optional[FrameFeatures]]:
@@ -184,29 +184,11 @@ def process_frame(
     Parameters:
         - frame_data (Tuple[int, NDArray[np.float32]]): A tuple containing the frame index and the frame data.
         - sample_rate (int): The sample rate of the audio data.
-        - frame_length (int): The length of the frame.
-        - feature_config (Optional[FeatureConfig]): Configuration for which features to extract. If None, all available features are extracted.
-        - start_sample (int): Sample offset from the start of the audio file (default: 0)
+        - feature_config (Optional[FeatureConfig]): Configuration for which features to extract.
+        - start_sample (int): Sample offset from the start of the audio file.
 
     Returns:
         - Tuple[int, Optional[FrameFeatures]]: A tuple containing the frame index and the extracted features, or None if an error occurred.
-
-    Raises:
-        - AudioValidationError: If the frame data is invalid.
-        - FeatureExtractionError: If there is an error during feature extraction.
-        - SpectralFeatureError: If there is an error during spectral feature extraction.
-        - Exception: For any other unexpected errors.
-
-    Features extracted may include:
-        - volume
-        - rms
-        - spectral_centroid
-        - spectral_bandwidth
-        - spectral_flatness
-        - spectral_rolloff
-        - mfcc
-        - frequency_bands
-        - zero_crossing_rate
     """
     frame_stats = ErrorStats()
 
@@ -232,10 +214,10 @@ def process_frame(
                     frame = np.mean(frame, axis=1)
 
                 # Pad or truncate to match FFT size
-                if len(frame) < N_FFT:
-                    frame = np.pad(frame, (0, N_FFT - len(frame)))
-                elif len(frame) > N_FFT:
-                    frame = frame[:N_FFT]
+                if len(frame) < FRAME_LENGTH:
+                    frame = np.pad(frame, (0, FRAME_LENGTH - len(frame)))
+                elif len(frame) > FRAME_LENGTH:
+                    frame = frame[:FRAME_LENGTH]
 
                 # Convert to tensor and move to device
                 frame_tensor = torch.from_numpy(frame).to(DEVICE)
@@ -265,12 +247,12 @@ def process_frame(
                     )
 
                     # Create spectrogram transform with explicit parameters and ensure window matches FFT size
-                    window = torch.hann_window(N_FFT, device=DEVICE)
+                    window = torch.hann_window(FRAME_LENGTH, device=DEVICE)
                     spec_tensor = torch.stft(
                         frame_tensor.squeeze(),  # Remove batch and channel dimensions
-                        n_fft=N_FFT,
+                        n_fft=FRAME_LENGTH,
                         hop_length=HOP_LENGTH,
-                        win_length=N_FFT,
+                        win_length=FRAME_LENGTH,
                         window=window,
                         center=True,
                         normalized=False,
@@ -293,8 +275,8 @@ def process_frame(
                     elif spec_tensor.dim() == 2:  # (freq, time)
                         spec_tensor = spec_tensor[:, 0]  # Take first time frame
 
-                    # Ensure frequency dimension is correct (N_FFT//2 + 1)
-                    expected_bins = N_FFT // 2 + 1
+                    # Ensure frequency dimension is correct (FRAME_LENGTH//2 + 1)
+                    expected_bins = FRAME_LENGTH // 2 + 1
                     if spec_tensor.shape[0] != expected_bins:
                         logger.error(
                             f"Unexpected frequency bins: got {spec_tensor.shape[0]}, expected {expected_bins}"

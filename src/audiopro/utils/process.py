@@ -1,11 +1,21 @@
-# Import necessary modules
+"""
+This module contains utility functions for handling CPU-bound processing of audio data.
+"""
+
+# Import CPU-bound functions and utilities for processing audio data
 import signal
 import threading
+
+# Import context manager for graceful shutdown
 from contextlib import contextmanager
 from functools import lru_cache
 
-# Import custom logger
+# Import local utilities
 from audiopro.utils import get_logger
+from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
+    FRAME_LENGTH,
+    HOP_LENGTH,
+)
 
 # Set up logging
 logger = get_logger(__name__)
@@ -48,24 +58,19 @@ def graceful_shutdown():
 
 
 @lru_cache(maxsize=128)
-def calculate_max_workers(
-    audio_data_length: int, frame_length: int, hop_length: int
-) -> int:
+def calculate_max_workers(audio_data_length: int) -> int:
     """
     Calculate the maximum number of workers for processing audio data.
 
-    This function determines the number of workers based on the length of the audio data,
-    the frame length, and the hop length. The number of workers is constrained to be
-    between 1 and 32, inclusive.
+    This function determines the number of workers based on the length of the audio data
+    and the constants defined for frame and hop length. The number of workers is constrained
+    to be between 1 and 32, inclusive.
 
     Args:
         audio_data_length (int): The total length of the audio data.
-        frame_length (int): The length of each frame.
-        hop_length (int): The hop length between frames.
 
     Returns:
         int: The calculated number of workers, constrained to a minimum of 1 and a maximum of 32.
     """
-
-    num_frames = (audio_data_length - frame_length) // hop_length + 1
+    num_frames = (audio_data_length - FRAME_LENGTH) // HOP_LENGTH + 1
     return min(32, max(1, num_frames // 1000))
