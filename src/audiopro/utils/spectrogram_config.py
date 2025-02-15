@@ -5,6 +5,9 @@ from typing import Optional, Tuple
 import torch
 import numpy as np
 
+# Local application imports
+from audiopro.utils.constants import FRAME_LENGTH, HOP_LENGTH
+
 
 class SpectrogramConfig:
     """
@@ -34,10 +37,10 @@ class SpectrogramConfig:
             Returns a string representation of the SpectrogramConfig instance.
     """
 
-    # Ensure these match the constants in other files
-    DEFAULT_FFT_SIZE = 2048
-    DEFAULT_HOP_LENGTH = 512
-    EXPECTED_BINS = 1025  # (FFT_SIZE // 2) + 1
+    # Reuse constants from constants.py
+    DEFAULT_FFT_SIZE = FRAME_LENGTH
+    DEFAULT_HOP_LENGTH = HOP_LENGTH
+    EXPECTED_BINS = (FRAME_LENGTH // 2) + 1
     MIN_VALID_AMPLITUDE = 1e-10
 
     def __init__(
