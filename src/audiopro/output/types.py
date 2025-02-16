@@ -111,7 +111,7 @@ class FileInfo(TypedDict):
     codec: str
     size_mb: float
     created_date: str  # Unix timestamp
-    codec: str # Audio codec
+    codec: str  # Audio codec
     mime_type: MimeType  # MIME type with autocomplete support
     md5_hash: str
 
