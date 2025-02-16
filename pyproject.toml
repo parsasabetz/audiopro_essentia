@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 dependencies = [
     "aiofiles==24.1.0",
     "argcomplete==3.5.3",
-    "audioflux==0.1.9",
     "cffi==1.17.1",
     "charset-normalizer==3.4.1",
     "colorama==0.4.6",
