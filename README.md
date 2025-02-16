@@ -85,7 +85,7 @@ feature_config: FeatureConfig = {
     "spectral_centroid": True,
     "mfcc": True,
     # Features not included or set to False will be excluded. 
-    # To compute all features, simply pass None or an empty dict.
+    # To compute all features, simply pass None.
 }
 
 await analyze_audio(
