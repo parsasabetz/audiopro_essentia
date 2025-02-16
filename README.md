@@ -32,6 +32,9 @@ python -m audiopro input.wav output
 # Analyze specific features only (computes only the selected features):
 python -m audiopro input.wav output --features rms spectral_centroid mfcc
 
+# Downsample audio to a lower sample rate (must be lower than original):
+python -m audiopro input.wav output --target-sample-rate 22050
+
 # To compute all features, either omit --features or pass an empty list:
 python -m audiopro input.wav output --features
 
@@ -211,6 +214,54 @@ feature_config: FeatureConfig = {
 }
 ```
 
+### Audio Downsampling
+
+The library supports downsampling audio to lower sample rates for faster processing. You can specify a target sample rate that must be lower than the original sample rate. This is useful when you want to:
+- Process large audio files more quickly
+- Reduce memory usage
+- Focus on lower frequency components
+- Maintain consistent sample rates across different files
+
+```bash
+# Command line usage:
+# Downsample to 22.05kHz (common for speech analysis)
+python -m audiopro input.wav output --target-sample-rate 22050
+
+# Downsample to 16kHz (common for speech recognition)
+python -m audiopro input.wav output --target-sample-rate 16000
+
+# Combine with other features
+python -m audiopro input.wav output --target-sample-rate 22050 --features mfcc rms
+```
+
+```python
+# Programmatic usage:
+import asyncio
+from audiopro import analyze_audio
+
+# Basic downsampling
+await analyze_audio(
+    file_path="input.wav",
+    output_path="output",
+    target_sample_rate=22050  # Will downsample to 22.05kHz
+)
+
+# Combine with other options
+await analyze_audio(
+    file_path="input.wav",
+    output_path="output",
+    target_sample_rate=16000,  # Downsample to 16kHz
+    feature_config={"mfcc": True, "rms": True},  # Only compute MFCC and RMS
+    time_range={"start": 10, "end": 20}  # Analyze specific time range
+)
+```
+
+**Note**: The target sample rate must be lower than the original sample rate. The library will raise a ValueError if you try to upsample or use the same sample rate. Common target sample rates:
+- 44100 Hz: CD quality audio
+- 22050 Hz: Good for most audio analysis tasks
+- 16000 Hz: Common for speech recognition
+- 8000 Hz: Minimum for speech intelligibility
+
 ### Output Structure
 
 ```python
@@ -273,6 +324,7 @@ feature_config: FeatureConfig = {
 
 - **Selective Feature Computation**: Choose which audio features to compute to optimize processing time and output size
 - **Audio Analysis**: Extract tempo, beats, and spectral features using `TorchAudio`
+- **Downsampling**: Optionally downsample audio to a lower sample rate for faster processing while maintaining quality using TorchAudio's high-quality resampling
 - **Performance Monitoring**: Built-in CPU and memory usage tracking leveraging multiprocessing
 - **Multiprocessing**: Parallel processing for faster analysis of large audio files
 - **Flexible Output**: Choose between JSON and MessagePack formats
