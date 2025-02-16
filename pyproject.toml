@@ -34,7 +34,6 @@ dependencies = [
     "scipy==1.15.1",
     "setuptools==75.8.0",
     "six==1.17.0",
-    "soundfile==0.13.1",
     "termcolor==2.5.0",
     "tomlkit==0.13.2",
     "torch==2.6.0",
