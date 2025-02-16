@@ -15,7 +15,8 @@ from audiopro.utils.logger import get_logger
 
 # Other local imports
 from audiopro.errors.exceptions import SpectralFeatureError
-from audiopro.output.types import AVAILABLE_FEATURES, FeatureConfig
+from audiopro.output.types import FeatureConfig
+from audiopro.output.feature_flags import FeatureFlagSet, create_feature_flags
 from audiopro.audio.frequency import compute_frequency_bands
 
 # Setup logger
@@ -138,6 +139,9 @@ def process_spectral_features(
     feature_values = {}
     logger.debug(f"Final spectrogram shape: {spec_tensor.shape}")
 
+    # Create feature flags once for efficient checking
+    feature_flags = create_feature_flags(feature_config)
+
     # Update frequency tensor to match spectrogram shape
     freq_tensor = torch.linspace(
         0, sample_rate / 2, FRAME_LENGTH // 2 + 1, device=DEVICE
@@ -153,13 +157,13 @@ def process_spectral_features(
     spec_tensor = spec_tensor.view(-1)
     freq_tensor = freq_tensor.view(-1)
 
-    # Compute spectral features
-    if "spectral_centroid" in (feature_config or AVAILABLE_FEATURES):
+    # Compute spectral features using efficient bit operations
+    if feature_flags.is_enabled("spectral_centroid"):
         spec_sum = torch.sum(spec_tensor)
         centroid = float(torch.sum(freq_tensor * spec_tensor) / (spec_sum + EPS))
         feature_values["spectral_centroid"] = centroid
 
-        if "spectral_bandwidth" in (feature_config or AVAILABLE_FEATURES):
+        if feature_flags.is_enabled("spectral_bandwidth"):
             bandwidth = float(
                 torch.sqrt(
                     torch.sum((freq_tensor - centroid).pow(2) * spec_tensor)
@@ -168,13 +172,13 @@ def process_spectral_features(
             )
             feature_values["spectral_bandwidth"] = bandwidth
 
-    if "spectral_flatness" in (feature_config or AVAILABLE_FEATURES):
+    if feature_flags.is_enabled("spectral_flatness"):
         feature_values["spectral_flatness"] = float(
             torch.exp(torch.mean(torch.log(spec_tensor + EPS)))
             / (torch.mean(spec_tensor) + EPS)
         )
 
-    if "spectral_rolloff" in (feature_config or AVAILABLE_FEATURES):
+    if feature_flags.is_enabled("spectral_rolloff"):
         cumsum = torch.cumsum(spec_tensor, dim=0)
         threshold = 0.85 * torch.sum(spec_tensor)
         rolloff_idx = torch.where(cumsum >= threshold)[0][0]
@@ -184,7 +188,7 @@ def process_spectral_features(
 
     process_mfcc_and_frequency_bands(
         feature_values,
-        feature_config,
+        feature_flags,  # Pass feature_flags instead of feature_config
         mfcc_transform,
         frame_tensor,
         spec_tensor,
@@ -196,7 +200,7 @@ def process_spectral_features(
 
 def process_mfcc_and_frequency_bands(
     feature_values: Dict[str, float],
-    feature_config: Optional[FeatureConfig],
+    feature_flags: FeatureFlagSet,
     mfcc_transform: torch.nn.Module,
     frame_tensor: torch.Tensor,
     spec_tensor: torch.Tensor,
@@ -207,15 +211,14 @@ def process_mfcc_and_frequency_bands(
 
     Args:
         feature_values (Dict[str, float]): A dictionary to store the computed features.
-        feature_config (Optional[FeatureConfig]): Configuration for feature extraction.
-            If None, uses AVAILABLE_FEATURES.
+        feature_flags (FeatureFlagSet): Efficient feature flag set for checking enabled features.
         mfcc_transform (torch.nn.Module): A PyTorch module for computing MFCCs.
         frame_tensor (torch.Tensor): A PyTorch tensor representing the audio frame.
         spec_tensor (torch.Tensor): A PyTorch tensor representing the spectrogram of the audio frame.
         sample_rate (int): The sample rate of the audio.
     """
 
-    if "mfcc" in (feature_config or AVAILABLE_FEATURES):
+    if feature_flags.is_enabled("mfcc"):
         try:
             mfcc_coeffs = mfcc_transform(frame_tensor).squeeze()
             if mfcc_coeffs.dim() == 2:
@@ -230,7 +233,7 @@ def process_mfcc_and_frequency_bands(
             logger.error(f"MFCC computation failed: {str(e)}")
             feature_values["mfcc"] = [0.0] * 13
 
-    if "frequency_bands" in (feature_config or AVAILABLE_FEATURES):
+    if feature_flags.is_enabled("frequency_bands"):
         try:
             spec_np = spec_tensor.cpu().numpy()
             feature_values["frequency_bands"] = compute_frequency_bands(

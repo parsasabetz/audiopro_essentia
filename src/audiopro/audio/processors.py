@@ -15,7 +15,9 @@ from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
     FRAME_LENGTH,
 )
 from audiopro.utils.logger import get_logger
-from audiopro.output.types import AVAILABLE_FEATURES, SPECTRAL_FEATURES, FeatureConfig
+
+# Local output imports
+from audiopro.output.feature_flags import create_feature_flags, FeatureConfig
 
 # Local error handling imports
 from audiopro.errors.exceptions import (
@@ -64,11 +66,12 @@ def process_frame(
         try:
             frame_index, frame = frame_data
 
-            # Determine which transforms are needed
-            compute_spectrum = bool(
-                SPECTRAL_FEATURES & (feature_config or AVAILABLE_FEATURES)
-            )
-            compute_mfcc = "mfcc" in (feature_config or AVAILABLE_FEATURES)
+            # Create efficient feature flag set once
+            feature_flags = create_feature_flags(feature_config)
+
+            # More efficient feature checking
+            compute_spectrum = feature_flags.has_spectral_features
+            compute_mfcc = feature_flags.is_enabled("mfcc")
 
             # Get cached transforms for this sample rate
             _spectrum_transform, mfcc_transform = get_transforms(
@@ -105,12 +108,12 @@ def process_frame(
                 # Compute basic features
                 rms_tensor = torch.sqrt(torch.mean(frame_tensor.pow(2)))
 
-                if "volume" in (feature_config or AVAILABLE_FEATURES):
+                if feature_flags.is_enabled("volume"):
                     feature_values["volume"] = float(
                         20.0 * torch.log10(rms_tensor + EPS)
                     )
 
-                if "rms" in (feature_config or AVAILABLE_FEATURES):
+                if feature_flags.is_enabled("rms"):
                     feature_values["rms"] = float(rms_tensor)
 
                 # Compute spectral features if needed
@@ -127,7 +130,7 @@ def process_frame(
                         )
                     )
 
-                if "zero_crossing_rate" in (feature_config or AVAILABLE_FEATURES):
+                if feature_flags.is_enabled("zero_crossing_rate"):
                     feature_values["zero_crossing_rate"] = float(
                         torch.mean(
                             torch.abs(
