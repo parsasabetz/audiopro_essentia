@@ -31,10 +31,12 @@ if __name__ == "__main__":
     asyncio.run(
         analyze_audio(
             args["input_file"],
-            args["output_file"],  # Pass raw output path without extension
+            args["output_file"],
             output_format=args["format"],
             skip_monitoring=args["skip_monitoring"],
             feature_config=args["feature_config"],
-            gzip_output=args["gzip_output"],  # Pass gzip flag
+            time_range=args["time_range"],
+            gzip_output=args["gzip_output"],
+            target_sample_rate=args["target_sample_rate"],  # Add new parameter
         )
     )

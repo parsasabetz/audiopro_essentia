@@ -79,6 +79,12 @@ def parse_arguments() -> Dict[str, Any]:
     )
 
     parser.add_argument(
+        "--target-sample-rate",
+        type=int,
+        help="Target sample rate for downsampling. Must be lower than the original sample rate.",
+    )
+
+    parser.add_argument(
         "--start",
         type=float,
         default=0.0,
@@ -109,6 +115,7 @@ def parse_arguments() -> Dict[str, Any]:
         "feature_config": create_feature_config(args.features),
         "time_range": time_range if time_range else None,
         "gzip_output": args.gzip,  # Pass gzip flag
+        "target_sample_rate": args.target_sample_rate,  # Add new parameter
     }
 
     return result
