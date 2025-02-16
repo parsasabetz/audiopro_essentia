@@ -10,7 +10,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 # Import constants for frame length and hop length
-from audiopro.utils.constants import FRAME_LENGTH, HOP_LENGTH
+from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
+    FRAME_LENGTH,
+    HOP_LENGTH,
+)
 
 
 def create_frame_generator(
