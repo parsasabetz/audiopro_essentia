@@ -1,3 +1,20 @@
+## 1.2.0 (2025-02-16)
+
+### Feat
+
+- **Chroma**: implement cached pitch class mapping for optimized Chroma computation in spectrogram processing
+- implement feature flag management using bit operations for efficient feature tracking
+
+### Fix
+
+- enhance audio loading and processing logic, improve metadata extraction, and update logging, fix the extraction duration bug where the entire audio would not be processed because of multi-channel processing, switching to mono processing now
+
+### Refactor
+
+- optimize feature checking by implementing feature flags for efficient processing
+- update output module documentation and enhance type definitions for feature management for a more efficient solution
+- update `get_transforms` to conditionally compute spectrum and MFCC transformations based on feature configuration
+
 ## 1.1.0 (2025-02-15)
 
 ### Feat
