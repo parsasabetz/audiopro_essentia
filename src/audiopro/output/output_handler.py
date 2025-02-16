@@ -7,7 +7,9 @@ from typing import Callable, Dict, Any
 
 # Standard library imports
 import gzip
+import asyncio
 import msgpack
+import aiofiles
 
 # Local imports
 from .types import AudioAnalysis
@@ -38,7 +40,7 @@ async def write_output(
         analysis (AudioAnalysis): Dictionary containing the analysis results to be written
         output_path (str): Path to the output file (without extension)
         output_format (OutputFormat): Format to save the file in, already validated by argparse
-        gzip_output (bool): Whether to gzip compress the output file (only applicable for msgpack format)
+        gzip_output (bool): Whether to gzip compress the output file (*only applicable for msgpack format*)
 
     Raises:
         aiofiles.errors.FileError: If there are issues with file operations
@@ -60,13 +62,16 @@ async def write_output(
     try:
         if output_format == "msgpack":
             full_path = final_output + (".gz" if gzip_output else "")
-            data = msgpack.packb(analysis, use_bin_type=True)
+            # offload msgpack packing
+            data = await asyncio.to_thread(msgpack.packb, analysis, use_bin_type=True)
             if gzip_output:
-                with gzip.open(full_path, "wb") as f:
-                    f.write(data)
+                # offload compression with a lower compression level (faster, less CPU-intensive, less execution time)
+                compressed_data = await asyncio.to_thread(gzip.compress, data, 4)
+                async with aiofiles.open(full_path, "wb") as f:
+                    await f.write(compressed_data)
             else:
-                with open(full_path, "wb") as f:
-                    f.write(data)
+                async with aiofiles.open(full_path, "wb") as f:
+                    await f.write(data)
         else:
             await OUTPUT_HANDLERS[output_format](analysis, final_output)
         logger.info("Output written successfully")
