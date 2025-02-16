@@ -4,6 +4,7 @@ from typing import Dict, Optional
 # Third-party imports
 import torch
 import numpy as np
+from functools import lru_cache
 
 # Local util imports
 from audiopro.utils.constants import (  # pylint: disable=no-name-in-module
@@ -113,6 +114,39 @@ def normalize_spectrogram(spec_tensor: torch.Tensor) -> torch.Tensor:
     return spec_tensor
 
 
+@lru_cache(maxsize=16)
+def get_pitch_class_mapping(
+    sample_rate: int, bins_per_octave: int = 12, f_ref: float = 55.0
+) -> torch.Tensor:
+    """
+    Compute a mapping from frequency bins to pitch classes.
+    This function precomputes a mapping from frequency bins to pitch classes for a given sample rate,
+    number of bins per octave, and reference frequency. The mapping is cached to improve performance
+    for repeated calls with the same parameters.
+    Args:
+        sample_rate (int): The sample rate of the audio signal.
+        bins_per_octave (int, optional): The number of bins per octave. Default is 12.
+        f_ref (float, optional): The reference frequency in Hz. Default is 55.0 Hz.
+    Returns:
+        torch.Tensor: A tensor containing the pitch class mapping for each frequency bin.
+    """
+
+    # Precompute frequency vector from 0 to sample_rate/2
+    freq = torch.linspace(0, sample_rate / 2, FRAME_LENGTH // 2 + 1, device=DEVICE)
+
+    # Mark indices with zero frequency as invalid (-1)
+    mapping = torch.full((freq.shape[0],), -1, device=DEVICE, dtype=torch.long)
+
+    nonzero = freq > 0
+    freq_nonzero = freq[nonzero]
+
+    pitch_class = torch.remainder(
+        torch.round(bins_per_octave * torch.log2(freq_nonzero / f_ref)), bins_per_octave
+    ).to(torch.long)
+    mapping[nonzero] = pitch_class
+    return mapping
+
+
 def process_spectral_features(
     spec_tensor: torch.Tensor,
     sample_rate: int,
@@ -186,9 +220,25 @@ def process_spectral_features(
             freq_tensor[min(rolloff_idx, freq_tensor.shape[0] - 1)]
         )
 
+    # Optimized vectorized chroma computation using cached mapping
+    if feature_flags.is_enabled("chroma"):
+        try:
+            bins_per_octave = 12
+            mapping = get_pitch_class_mapping(sample_rate, bins_per_octave, 55.0)
+            valid_mask = mapping >= 0
+            # Use the matching indices from spec_tensor (assumed aligned with mapping)
+            spec_nonzero = spec_tensor[valid_mask]
+            pitch_classes = mapping[valid_mask]
+            chroma_vector = torch.zeros(bins_per_octave, device=DEVICE)
+            chroma_vector = chroma_vector.scatter_add_(0, pitch_classes, spec_nonzero)
+            feature_values["chroma"] = chroma_vector.cpu().tolist()
+        except Exception as e:
+            logger.error(f"Chroma computation failed: {str(e)}")
+            feature_values["chroma"] = [0.0] * 12
+
     process_mfcc_and_frequency_bands(
         feature_values,
-        feature_flags,  # Pass feature_flags instead of feature_config
+        feature_flags,
         mfcc_transform,
         frame_tensor,
         spec_tensor,
