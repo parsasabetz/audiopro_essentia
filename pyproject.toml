@@ -36,7 +36,7 @@ dependencies = [
     "wcwidth==0.2.13",
 ]
 name = "audiopro"
-version = "1.3.0"
+version = "1.4.0"
 authors = [{ name = "Parsa Sabet", email = "parsa2003sabet@icloud.com" }]
 keywords = [
     "audio",
