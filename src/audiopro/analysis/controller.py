@@ -51,6 +51,7 @@ async def analyze_audio(
     feature_config: Optional[FeatureConfig] = None,
     time_range: Optional[TimeRange] = None,
     gzip_output: bool = False,
+    target_sample_rate: Optional[int] = None,
 ) -> None:
     """
     Analyze an audio file and extract features.
@@ -65,6 +66,8 @@ async def analyze_audio(
         time_range: Optional time range to analyze (in seconds).
                    If provided, only audio within this range will be analyzed.
         gzip_output: Whether to gzip the output file
+        target_sample_rate: Optional target sample rate for downsampling.
+                          Must be lower than the original sample rate.
 
     Raises:
         FileNotFoundError: If the input file doesn't exist
@@ -111,7 +114,11 @@ async def analyze_audio(
 
             logger.info("Starting audio analysis pipeline...")
             audio_data, sample_rate, loader_metadata, duration = (
-                load_and_preprocess_audio(file_path, time_range=time_range)
+                load_and_preprocess_audio(
+                    file_path,
+                    time_range=time_range,
+                    target_sample_rate=target_sample_rate,
+                )
             )
 
             start_sample = (
@@ -226,7 +233,7 @@ async def analyze_audio(
             else:
                 execution_time = end_time - start_time
                 logger.info(
-                    f"Execution Time: {execution_time:.4f} seconds ({execution_time*1000:.2f} ms)"
+                    f"Execution Time: {execution_time:.4f} seconds ({execution_time * 1000:.2f} ms)"
                 )
 
         except Exception as e:

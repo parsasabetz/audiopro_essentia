@@ -23,7 +23,9 @@ logger = get_logger(__name__)
 
 
 def load_and_preprocess_audio(
-    file_path: str, time_range: Optional[TimeRange] = None
+    file_path: str,
+    time_range: Optional[TimeRange] = None,
+    target_sample_rate: Optional[int] = None,
 ) -> Tuple[np.ndarray, int, LoaderMetadata, float]:
     """Loads and preprocesses an audio file for analysis.
 
@@ -35,6 +37,7 @@ def load_and_preprocess_audio(
         time_range (Optional[TimeRange]): Time range as a dictionary with 'start' and 'end' keys.
             If 'end' is None, processes until the end of file.
             If 'start' is None, processes from the beginning.
+        target_sample_rate (Optional[int]): Target sample rate for downsampling. Must be lower than the original sample rate.
 
     Returns:
         tuple: A tuple containing:
@@ -62,7 +65,25 @@ def load_and_preprocess_audio(
         logger.info("Loading audio file: %s", file_path)
         try:
             # Force channels_first=False to get waveform shape (time, channels)
-            waveform, sample_rate = torchaudio.load(file_path, channels_first=False)
+            waveform, original_sample_rate = torchaudio.load(
+                file_path, channels_first=False
+            )
+            sample_rate = original_sample_rate
+
+            if target_sample_rate is not None:
+                if target_sample_rate >= original_sample_rate:
+                    raise ValueError(
+                        f"Target sample rate ({target_sample_rate}Hz) must be lower than "
+                        f"original sample rate ({original_sample_rate}Hz)"
+                    )
+                logger.info(
+                    f"Resampling audio from {original_sample_rate}Hz to {target_sample_rate}Hz"
+                )
+                resampler = torchaudio.transforms.Resample(
+                    orig_freq=original_sample_rate, new_freq=target_sample_rate
+                )
+                waveform = resampler(waveform.T).T
+                sample_rate = target_sample_rate
 
             # Get audio info using ffmpeg
             probe = ffmpeg.probe(file_path)
