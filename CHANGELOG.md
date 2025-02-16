@@ -1,3 +1,14 @@
+## 1.3.0 (2025-02-16)
+
+### Feat
+
+- **arg_parser**: add target sample rate argument for downsampling in audio analysis
+- **downsampling**: add target sample rate parameter for downsampling in audio analysis if needed
+
+### Perf
+
+- **output**: enhance output handling with async file operations and gzip compression
+
 ## 1.2.0 (2025-02-16)
 
 ### Feat
