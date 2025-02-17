@@ -18,7 +18,7 @@ pip install -r requirements.txt
 - For Apple Silicon users: `xcode-select --install` may be required
 
 ```bash
-pip install git+ssh://git@github.com/parsasabetz/audiopro.git
+pip install git+ssh://git@github.com/parsasabetz/audiopro_essentia.git
 ```
 
 ## Usage
@@ -335,7 +335,7 @@ audiopro/
 ### Setting up development environment
 
 ```bash
-git clone git@github.com:parsasabetz/audiopro.git
+git clone git@github.com:parsasabetz/audiopro_essentia.git
 cd audiopro
 python -m venv venv
 source venv/bin/activate
