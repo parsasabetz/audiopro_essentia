@@ -15,7 +15,7 @@ prompt_toolkit==3.0.50
 psutil==6.1.1
 PyYAML==6.0.2
 questionary==2.1.0
-setuptools==75.8.0
+setuptools==78.1.1
 six==1.17.0
 termcolor==2.5.0
 tomlkit==0.13.2
